@@ -1,0 +1,1 @@
+# Planovani_smen_fermato
