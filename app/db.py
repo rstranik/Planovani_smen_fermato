@@ -12,16 +12,34 @@ def get_db():
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
         g.db.execute("PRAGMA journal_mode = WAL")
+        _ensure_schema(g.db)
         _migrate_db(g.db)
     return g.db
 
 
+def _ensure_schema(db):
+    """Create tables if they don't exist yet (fresh install)."""
+    import os
+    from flask import current_app
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'schema.sql')
+    if not os.path.exists(schema_path):
+        # Try relative to app root
+        schema_path = os.path.join(current_app.root_path, 'schema.sql')
+    if os.path.exists(schema_path):
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            db.executescript(f.read())
+
+
 def _migrate_db(db):
     """Run lightweight migrations for schema changes."""
-    cols = [r[1] for r in db.execute("PRAGMA table_info(employees)").fetchall()]
-    if 'email' not in cols:
-        db.execute("ALTER TABLE employees ADD COLUMN email TEXT DEFAULT ''")
-        db.commit()
+    # Only migrate if employees table exists
+    tables = [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+
+    if 'employees' in tables:
+        cols = [r[1] for r in db.execute("PRAGMA table_info(employees)").fetchall()]
+        if 'email' not in cols:
+            db.execute("ALTER TABLE employees ADD COLUMN email TEXT DEFAULT ''")
+            db.commit()
 
     # Ensure app_settings table exists
     db.execute("""
@@ -45,6 +63,18 @@ def _migrate_db(db):
         )
     """)
     db.commit()
+
+    # Auto-create default admin if no users exist
+    user_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if user_count == 0:
+        from werkzeug.security import generate_password_hash
+        import os
+        default_pw = os.environ.get('ADMIN_PASSWORD', 'fermato2026')
+        db.execute(
+            "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
+            ('admin', generate_password_hash(default_pw), 'Administrátor')
+        )
+        db.commit()
 
 
 def close_db(e=None):
