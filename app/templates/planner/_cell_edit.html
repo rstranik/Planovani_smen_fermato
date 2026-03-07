@@ -1,0 +1,87 @@
+{# Inline edit form for a single cell - loaded via HTMX #}
+<div class="cell-edit-form">
+    <form hx-post="{{ url_for('planner.save_cell', plan_id=plan_id, emp_id=emp_id, cell_date=cell_date) }}"
+          hx-target="closest .plan-cell-wrapper"
+          hx-swap="innerHTML">
+
+        <div class="cell-edit-tabs mb-1">
+            <button type="button" class="btn btn-sm btn-outline-primary active cell-tab" data-tab="work" onclick="switchCellTab(this, 'work')">
+                Práce
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-warning cell-tab" data-tab="absence" onclick="switchCellTab(this, 'absence')">
+                Absence
+            </button>
+        </div>
+
+        <!-- Work tab -->
+        <div class="cell-tab-content" id="tab-work-{{ emp_id }}-{{ cell_date }}">
+            <select name="shift_template_id" class="form-select form-select-sm mb-1">
+                <option value="">Směna</option>
+                {% for s in shifts %}
+                <option value="{{ s.id }}" {{ 'selected' if assignment and assignment.shift_template_id == s.id }}>
+                    {{ s.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="department_id" class="form-select form-select-sm mb-1"
+                    onchange="loadCellTasks(this, '{{ emp_id }}-{{ cell_date }}')">
+                <option value="">Oddělení</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {{ 'selected' if assignment and assignment.department_id == d.id }}>
+                    {{ d.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="task_id" class="form-select form-select-sm mb-1"
+                    id="cell-task-{{ emp_id }}-{{ cell_date }}">
+                <option value="">Práce</option>
+            </select>
+
+            <input type="hidden" name="action" value="save">
+        </div>
+
+        <!-- Absence tab (hidden by default) -->
+        <div class="cell-tab-content d-none" id="tab-absence-{{ emp_id }}-{{ cell_date }}">
+            <select name="absence_type" class="form-select form-select-sm mb-1">
+                {% for val, label in absence_types %}
+                <option value="{{ val }}" {{ 'selected' if assignment and assignment.is_absence and assignment.absence_type == val }}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <input name="note" class="form-control form-control-sm mb-1" placeholder="Pozn."
+               value="{{ assignment.note if assignment and assignment.note else '' }}">
+
+        <div class="d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-grow-1">
+                <i class="bi bi-check"></i>
+            </button>
+            <button type="submit" name="action" value="clear" class="btn btn-sm btn-outline-danger"
+                    title="Vymazat">
+                <i class="bi bi-x"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    hx-post="{{ url_for('planner.save_cell', plan_id=plan_id, emp_id=emp_id, cell_date=cell_date) }}"
+                    hx-target="closest .plan-cell-wrapper"
+                    hx-swap="innerHTML"
+                    hx-vals='{"action":"cancel"}'
+                    title="Zrušit">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Load tasks for selected department in this cell
+(function() {
+    const deptSelect = document.querySelector('#tab-work-{{ emp_id }}-{{ cell_date }} [name="department_id"]');
+    if (deptSelect && deptSelect.value) {
+        loadCellTasks(deptSelect, '{{ emp_id }}-{{ cell_date }}', '{{ assignment.task_id if assignment and assignment.task_id else '' }}');
+    }
+})();
+</script>

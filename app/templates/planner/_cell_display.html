@@ -1,0 +1,33 @@
+{# Single cell display - used for initial render and HTMX updates #}
+{% set absence_labels = {'dovolena': 'Dovolená', 'nemoc': 'Nemoc', 'lekar': 'Lékař', 'osobni': 'Osobní', 'nahradni': 'Náhr. volno', 'jine': 'Jiné'} %}
+<span class="cell-spinner"><i class="bi bi-arrow-repeat spin"></i></span>
+<div class="plan-cell"
+     hx-get="{{ url_for('planner.edit_cell', plan_id=plan_id, emp_id=emp_id, cell_date=cell_date) }}"
+     hx-target="closest .plan-cell-wrapper"
+     hx-swap="innerHTML"
+     hx-indicator="closest .plan-cell-wrapper"
+     title="Klikni pro editaci">
+    {% if a and (a.is_absence or a.dept_name or a.task_name or a.shift_name or a.note) %}
+        {% if a.is_absence %}
+            <span class="absence-badge absence-{{ a.absence_type }}">
+                {{ absence_labels.get(a.absence_type, a.absence_type) }}
+            </span>
+            {% if a.note %}<small class="cell-note">{{ a.note }}</small>{% endif %}
+        {% else %}
+            {% if a.dept_name %}
+                <span class="dept-badge-sm" style="background-color: #{{ a.dept_color or 'D9D9D9' }}">
+                    {{ a.dept_name }}
+                </span>
+            {% endif %}
+            {% if a.task_name %}
+                <small class="task-label">{{ a.task_name }}</small>
+            {% endif %}
+            {% if a.shift_name %}
+                <small class="shift-label">{{ a.shift_name }}</small>
+            {% endif %}
+            {% if a.note %}<small class="cell-note">{{ a.note }}</small>{% endif %}
+        {% endif %}
+    {% else %}
+        <span class="empty-cell">+</span>
+    {% endif %}
+</div>

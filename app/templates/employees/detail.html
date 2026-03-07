@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{{ employee.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>
+        <i class="bi bi-person"></i> {{ employee.name }}
+        {% if not employee.active %}
+            <span class="badge bg-secondary fs-6">Neaktivní</span>
+        {% endif %}
+    </h1>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('employees.edit', emp_id=employee.id) }}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Upravit
+        </a>
+        <a href="{{ url_for('employees.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zpět
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Info -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Základní údaje</div>
+            <div class="card-body">
+                <dl class="mb-0">
+                    <dt>Výchozí směna</dt>
+                    <dd>
+                        {% if employee.shift_name %}
+                            <span class="shift-badge {{ employee.shift_name|lower|replace('í','i')|replace('á','a')|replace('č','c') }}">
+                                {{ employee.shift_name }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">Nenastavena</span>
+                        {% endif %}
+                    </dd>
+                    {% if employee.note %}
+                    <dt>Poznámka</dt>
+                    <dd>{{ employee.note }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">Kvalifikace</div>
+            <div class="card-body">
+                {% if qualifications %}
+                    {% set current_dept = [0] %}
+                    {% for q in qualifications %}
+                        {% if q.department_id != current_dept[0] %}
+                            {% if not loop.first %}<br>{% endif %}
+                            <strong>{{ q.dept_name }}:</strong><br>
+                            {% set _ = current_dept.__setitem__(0, q.department_id) %}
+                        {% endif %}
+                        <span class="qual-chip">{{ q.task_name or 'Vše' }}</span>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">Žádné kvalifikace. <a href="{{ url_for('employees.edit', emp_id=employee.id) }}">Nastavit</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Default Pattern -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Výchozí týdenní vzor</span>
+                <small class="text-muted">Tento vzor se automaticky předvyplní do nových plánů</small>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('employees.save_pattern', emp_id=employee.id) }}">
+                    <table class="table pattern-table mb-3">
+                        <thead>
+                            <tr>
+                                <th class="day-header">Den</th>
+                                <th class="day-header">Směna</th>
+                                <th class="day-header">Oddělení</th>
+                                <th class="day-header">Práce</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for day in range(7) %}
+                            {% set p = pattern.get(day) %}
+                            <tr class="{{ 'table-light' if day >= 5 }}">
+                                <td class="fw-bold text-start">{{ day_names[day] }}</td>
+                                <td>
+                                    <select name="day_{{ day }}_shift" class="form-select form-select-sm">
+                                        <option value="">—</option>
+                                        {% for s in shifts %}
+                                        <option value="{{ s.id }}"
+                                            {{ 'selected' if p and p.shift_template_id == s.id }}>
+                                            {{ s.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="day_{{ day }}_dept" class="form-select form-select-sm"
+                                            hx-target="[name='day_{{ day }}_task']"
+                                            hx-swap="innerHTML"
+                                            onchange="loadTasks(this, {{ day }})">
+                                        <option value="">—</option>
+                                        {% for d in departments %}
+                                        <option value="{{ d.id }}"
+                                            {{ 'selected' if p and p.department_id == d.id }}>
+                                            {{ d.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="day_{{ day }}_task" class="form-select form-select-sm">
+                                        <option value="">—</option>
+                                        {% if p and p.department_id %}
+                                            {# We'll need JS to populate this or pre-render #}
+                                        {% endif %}
+                                    </select>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Uložit vzor
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const patternData = {{ pattern_json|default('{}')|safe }};
+
+function loadTasks(deptSelect, day) {
+    const deptId = deptSelect.value;
+    const taskSelect = document.querySelector('[name="day_' + day + '_task"]');
+    if (!deptId) {
+        taskSelect.innerHTML = '<option value="">—</option>';
+        return;
+    }
+    fetch('/employees/api/tasks/' + deptId)
+        .then(r => r.text())
+        .then(html => {
+            taskSelect.innerHTML = html;
+            // Pre-select saved task if exists
+            const saved = patternData[String(day)];
+            if (saved && saved.task_id) {
+                taskSelect.value = saved.task_id;
+            }
+        });
+}
+
+// On page load, populate task selects for saved patterns
+document.addEventListener('DOMContentLoaded', function() {
+    for (const [day, data] of Object.entries(patternData)) {
+        if (data.department_id) {
+            const deptSelect = document.querySelector('[name="day_' + day + '_dept"]');
+            if (deptSelect) loadTasks(deptSelect, parseInt(day));
+        }
+    }
+});
+</script>
+{% endblock %}

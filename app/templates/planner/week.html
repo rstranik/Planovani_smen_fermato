@@ -1,0 +1,640 @@
+{% extends "base.html" %}
+{% block title %}Týden {{ plan.week_number }}/{{ plan.year }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.planner-grid {
+    overflow-x: auto;
+}
+.planner-grid table {
+    min-width: 900px;
+}
+.planner-grid th.day-col {
+    min-width: 120px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: white;
+}
+.planner-grid .emp-name {
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.85rem;
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 2;
+    min-width: 140px;
+}
+.planner-grid thead .emp-name {
+    z-index: 10;
+    position: sticky;
+    top: 0;
+    left: 0;
+}
+.plan-cell-wrapper {
+    min-height: 50px;
+    padding: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.plan-cell-wrapper:hover {
+    background: #f0f4ff;
+}
+/* Keyboard focus ring */
+.plan-cell-wrapper.cell-focused {
+    outline: 2px solid var(--fm-primary);
+    outline-offset: -2px;
+    background: #eef2ff;
+}
+.plan-cell {
+    font-size: 0.78rem;
+    line-height: 1.3;
+}
+.dept-badge-sm {
+    display: inline-block;
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.task-label {
+    display: block;
+    color: #555;
+    font-size: 0.72rem;
+}
+.shift-label {
+    display: block;
+    color: #888;
+    font-size: 0.68rem;
+}
+.cell-note {
+    display: block;
+    color: #999;
+    font-size: 0.65rem;
+    font-style: italic;
+}
+.empty-cell {
+    display: block;
+    text-align: center;
+    color: #ccc;
+    font-size: 1.2rem;
+    line-height: 2;
+}
+/* Edit form */
+.cell-edit-form {
+    font-size: 0.8rem;
+}
+.cell-edit-form .form-select-sm,
+.cell-edit-form .form-control-sm {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+}
+.cell-edit-tabs .btn {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+}
+
+/* Summary row */
+.summary-cell {
+    font-size: 0.72rem;
+    text-align: center;
+}
+.staff-ok { color: #16a34a; }
+.staff-warn { color: #d97706; }
+.staff-danger { color: #dc2626; font-weight: 700; }
+
+/* Weekend columns */
+.col-weekend {
+    background: #f9fafb;
+}
+
+/* Status badge */
+.status-draft { background: #fef3c7; color: #92400e; }
+.status-published { background: #d1fae5; color: #065f46; }
+
+/* Clear day icon in header */
+.day-col .btn-clear-day {
+    display: none;
+    font-size: 0.6rem;
+    padding: 0 0.25rem;
+    line-height: 1;
+}
+.day-col:hover .btn-clear-day {
+    display: inline-block;
+}
+
+/* HTMX loading spinner */
+.cell-spinner {
+    display: none;
+    text-align: center;
+    padding: 12px 0;
+    color: var(--fm-primary);
+}
+.htmx-request .cell-spinner {
+    display: block;
+}
+.htmx-request .plan-cell {
+    display: none;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.spin {
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header with navigation -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('planner.week_view', week_start=prev_week) }}" class="btn btn-outline-secondary btn-sm"
+           title="Předchozí týden (Alt+←)">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <h1 class="mb-0" style="font-size:1.3rem;">
+            <i class="bi bi-table"></i>
+            Týden {{ plan.week_number }} / {{ plan.year }}
+            <small class="text-muted">({{ dates[0].strftime('%d.%m.') }} – {{ dates[6].strftime('%d.%m.%Y') }})</small>
+        </h1>
+        <a href="{{ url_for('planner.week_view', week_start=next_week) }}" class="btn btn-outline-secondary btn-sm"
+           title="Další týden (Alt+→)">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% if week_start != today_week %}
+        <a href="{{ url_for('planner.week_view', week_start=today_week) }}" class="btn btn-outline-primary btn-sm">
+            Dnes
+        </a>
+        {% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <!-- Bulk operations dropdown -->
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-gear"></i> Operace
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#copyWeekModal">
+                        <i class="bi bi-clipboard"></i> Kopírovat z minulého týdne
+                    </button>
+                </li>
+                <li>
+                    <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#refillModal">
+                        <i class="bi bi-arrow-repeat"></i> Přeplnit z vzorů
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <a href="{{ url_for('export.export_week', week_start=week_start) }}"
+           class="btn btn-outline-secondary btn-sm" title="Stáhnout Excel">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+        </a>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
+                data-bs-target="#sendEmailModal" title="Rozeslat rozpis emailem">
+            <i class="bi bi-envelope"></i> Rozeslat
+        </button>
+        <span class="badge status-{{ plan.status }}">
+            {{ 'Koncept' if plan.status == 'draft' else 'Publikováno' }}
+        </span>
+        {% if plan.status == 'draft' %}
+        <form method="POST" action="{{ url_for('planner.change_status', plan_id=plan.id) }}" class="d-inline">
+            <input type="hidden" name="status" value="published">
+            <button class="btn btn-success btn-sm">
+                <i class="bi bi-check2-circle"></i> Publikovat
+            </button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('planner.change_status', plan_id=plan.id) }}" class="d-inline">
+            <input type="hidden" name="status" value="draft">
+            <button class="btn btn-outline-warning btn-sm">
+                <i class="bi bi-pencil"></i> Zpět do konceptu
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Planner Grid -->
+<div class="card">
+    <div class="card-body p-2 planner-grid" id="plannerGrid">
+        <table class="table table-bordered table-sm mb-0">
+            <thead>
+                <tr>
+                    <th class="emp-name">Zaměstnanec</th>
+                    {% for i in range(7) %}
+                    <th class="day-col {{ 'col-weekend' if dates[i].weekday() >= 5 }}">
+                        <div>
+                            {{ day_names[i] }}
+                            <form method="POST"
+                                  action="{{ url_for('planner.clear_day_route', plan_id=plan.id, day_date=dates[i].isoformat()) }}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('Vymazat všechna přiřazení pro {{ day_names_full[i] }} {{ dates[i].strftime('%d.%m.') }}?')">
+                                <button type="submit" class="btn btn-clear-day btn-outline-danger" title="Vymazat den">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                        <small class="text-muted">{{ dates[i].strftime('%d.%m.') }}</small>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in grid %}
+                {% set row_idx = loop.index0 %}
+                <tr data-row="{{ row_idx }}">
+                    <td class="emp-name">
+                        <a href="{{ url_for('employees.detail', emp_id=row.employee.id) }}"
+                           class="text-decoration-none" title="Detail zaměstnance">
+                            {{ row.employee.name }}
+                        </a>
+                    </td>
+                    {% for day in row.days %}
+                    <td class="p-0 {{ 'col-weekend' if day.is_weekend }}" data-row="{{ row_idx }}" data-col="{{ loop.index0 }}">
+                        <div class="plan-cell-wrapper"
+                             id="cell-{{ row.employee.id }}-{{ day.date_str }}">
+                            <span class="cell-spinner"><i class="bi bi-arrow-repeat spin"></i></span>
+                            {% set a = day.assignment %}
+                            {% with plan_id=plan.id, emp_id=row.employee.id, cell_date=day.date_str %}
+                                {% include 'planner/_cell_display.html' %}
+                            {% endwith %}
+                        </div>
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+
+                {% if not grid %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="bi bi-people"></i> Žádní aktivní zaměstnanci.
+                        <a href="{{ url_for('employees.add') }}">Přidat zaměstnance</a>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+
+            <!-- Staffing Summary (auto-refreshes after cell edit via HTMX) -->
+            {% if grid %}
+            <tfoot hx-get="{{ url_for('planner.summary_row', plan_id=plan.id, week_start=week_start) }}"
+                   hx-trigger="cellSaved from:body"
+                   hx-swap="innerHTML">
+                {% include 'planner/_summary_row.html' %}
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<!-- Legend + keyboard hints -->
+<div class="mt-2 d-flex justify-content-between flex-wrap">
+    <div class="d-flex gap-3 flex-wrap" style="font-size:0.75rem;">
+        <span class="text-muted">Absence:</span>
+        {% for val, label in absence_types %}
+        <span class="absence-badge absence-{{ val }}">{{ label }}</span>
+        {% endfor %}
+    </div>
+    <div class="text-muted" style="font-size:0.7rem;">
+        <i class="bi bi-keyboard"></i>
+        ↑↓←→ navigace &middot; Enter editace &middot; Esc zrušit &middot; Ctrl+Enter uložit
+    </div>
+</div>
+
+<!-- Copy Week Modal -->
+<div class="modal fade" id="copyWeekModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('planner.copy_week', plan_id=plan.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-clipboard"></i> Kopírovat z minulého týdne</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-0">
+                        Přepsat aktuální plán přiřazeními z <strong>týdne {{ plan.week_number - 1 }}</strong>?
+                        Všechna stávající přiřazení budou odstraněna.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-clipboard"></i> Kopírovat
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Refill from Patterns Modal -->
+<div class="modal fade" id="refillModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('planner.refill', plan_id=plan.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Přeplnit z vzorů</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-0">
+                        Smazat všechna přiřazení a znovu naplnit z <strong>výchozích vzorů</strong>
+                        zaměstnanců a jejich <strong>omezení/absencí</strong>?
+                        Manuální úpravy budou ztraceny.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-arrow-repeat"></i> Přeplnit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Send Email Modal -->
+<div class="modal fade" id="sendEmailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('planner.send_email', plan_id=plan.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-envelope"></i> Rozeslat rozpis emailem</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% set emailable = [] %}
+                    {% for row in grid %}
+                        {% if row.employee.email %}
+                            {% set _ = emailable.append(row.employee) %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if emailable %}
+                    <p class="text-muted mb-2">
+                        Vyberte zaměstnance, kterým se odešle rozpis na
+                        <strong>týden {{ plan.week_number }}/{{ plan.year }}</strong> jako Excel příloha.
+                    </p>
+                    <div class="mb-2 d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="emailToggleAll(true)">
+                            <i class="bi bi-check-all"></i> Vše
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="emailToggleAll(false)">
+                            <i class="bi bi-x-lg"></i> Nic
+                        </button>
+                    </div>
+                    <div class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto;">
+                        {% for emp in emailable %}
+                        <label class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2">
+                            <input type="checkbox" name="emp_ids" value="{{ emp.id }}"
+                                   class="form-check-input email-check" checked>
+                            <div>
+                                <div class="fw-semibold">{{ emp.name }}</div>
+                                <small class="text-muted">{{ emp.email }}</small>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-2 text-muted small">
+                        <i class="bi bi-info-circle"></i>
+                        <span id="emailCount">{{ emailable|length }}</span> z {{ grid|length }} zaměstnanců má email
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Žádný zaměstnanec v rozpisu nemá vyplněný email.
+                        Emaily nastavte v <a href="{{ url_for('employees.index') }}">kartě zaměstnanců</a>
+                        nebo je naimportujte z HR Excelu.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zrušit</button>
+                    {% if emailable %}
+                    <button type="submit" class="btn btn-primary btn-sm" id="sendEmailBtn">
+                        <i class="bi bi-send"></i> Odeslat
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* --- Email modal helpers --- */
+function emailToggleAll(checked) {
+    document.querySelectorAll('.email-check').forEach(cb => cb.checked = checked);
+    emailUpdateCount();
+}
+
+function emailUpdateCount() {
+    const checked = document.querySelectorAll('.email-check:checked').length;
+    const btn = document.getElementById('sendEmailBtn');
+    if (btn) {
+        btn.textContent = checked > 0
+            ? ` Odeslat (${checked})`
+            : ' Odeslat';
+        btn.disabled = checked === 0;
+    }
+}
+
+// Update count on checkbox change
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('email-check')) {
+        emailUpdateCount();
+    }
+});
+
+/* --- Existing cell helpers --- */
+function loadCellTasks(deptSelect, cellId, preselect) {
+    const taskSelect = document.getElementById('cell-task-' + cellId);
+    const deptId = deptSelect.value;
+    if (!deptId) {
+        taskSelect.innerHTML = '<option value="">—</option>';
+        return;
+    }
+    fetch('/planner/tasks/' + deptId)
+        .then(r => r.text())
+        .then(html => {
+            taskSelect.innerHTML = html;
+            if (preselect) taskSelect.value = preselect;
+        });
+}
+
+function switchCellTab(btn, tab) {
+    const form = btn.closest('.cell-edit-form');
+    form.querySelectorAll('.cell-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    form.querySelectorAll('.cell-tab-content').forEach(el => el.classList.add('d-none'));
+    const targetId = form.querySelector('[id*="tab-' + tab + '"]').id;
+    document.getElementById(targetId).classList.remove('d-none');
+    const actionInput = form.querySelector('[name="action"]');
+    if (actionInput) actionInput.value = tab === 'absence' ? 'absence' : 'save';
+}
+
+/* --- Keyboard Navigation --- */
+(function() {
+    const grid = document.getElementById('plannerGrid');
+    if (!grid) return;
+
+    let focusRow = -1;
+    let focusCol = -1;
+    let editing = false;
+
+    function getCells() {
+        return grid.querySelectorAll('td[data-row][data-col]');
+    }
+
+    function getCell(row, col) {
+        return grid.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
+    }
+
+    function getMaxRow() {
+        const cells = getCells();
+        let max = 0;
+        cells.forEach(c => { max = Math.max(max, parseInt(c.dataset.row)); });
+        return max;
+    }
+
+    function getMaxCol() { return 6; } // 7 days: 0-6
+
+    function clearFocus() {
+        grid.querySelectorAll('.cell-focused').forEach(el => el.classList.remove('cell-focused'));
+    }
+
+    function setFocus(row, col) {
+        clearFocus();
+        focusRow = Math.max(0, Math.min(row, getMaxRow()));
+        focusCol = Math.max(0, Math.min(col, getMaxCol()));
+        const cell = getCell(focusRow, focusCol);
+        if (cell) {
+            const wrapper = cell.querySelector('.plan-cell-wrapper');
+            if (wrapper) {
+                wrapper.classList.add('cell-focused');
+                wrapper.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
+        }
+    }
+
+    function isEditing() {
+        return !!grid.querySelector('.cell-edit-form');
+    }
+
+    function openEdit() {
+        const cell = getCell(focusRow, focusCol);
+        if (!cell) return;
+        const planCell = cell.querySelector('.plan-cell');
+        if (planCell) {
+            htmx.trigger(planCell, 'click');
+            editing = true;
+        }
+    }
+
+    function cancelEdit() {
+        const cancelBtn = grid.querySelector('.cell-edit-form button[hx-vals]');
+        if (cancelBtn) {
+            cancelBtn.click();
+            editing = false;
+        }
+    }
+
+    function submitEdit() {
+        const form = grid.querySelector('.cell-edit-form form');
+        if (form) {
+            form.requestSubmit();
+            editing = false;
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        // Alt+Arrow for week navigation
+        if (e.altKey && e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const prev = document.querySelector('a[title*="Předchozí"]');
+            if (prev) prev.click();
+            return;
+        }
+        if (e.altKey && e.key === 'ArrowRight') {
+            e.preventDefault();
+            const next = document.querySelector('a[title*="Další"]');
+            if (next) next.click();
+            return;
+        }
+
+        // Don't handle if focus is in a modal or other input
+        if (e.target.closest('.modal') || (e.target.tagName === 'INPUT' && !e.target.closest('.cell-edit-form'))
+            || (e.target.tagName === 'TEXTAREA' && !e.target.closest('.cell-edit-form'))) return;
+
+        // Ctrl+Enter to save from edit form
+        if (e.ctrlKey && e.key === 'Enter' && isEditing()) {
+            e.preventDefault();
+            submitEdit();
+            return;
+        }
+
+        // Escape to cancel edit
+        if (e.key === 'Escape') {
+            if (isEditing()) {
+                e.preventDefault();
+                cancelEdit();
+            }
+            return;
+        }
+
+        // Enter to open edit
+        if (e.key === 'Enter' && !isEditing() && focusRow >= 0) {
+            e.preventDefault();
+            openEdit();
+            return;
+        }
+
+        // Arrow keys for grid navigation (only when not editing)
+        if (!isEditing() && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            if (focusRow < 0) { setFocus(0, 0); return; }
+            switch (e.key) {
+                case 'ArrowUp':    setFocus(focusRow - 1, focusCol); break;
+                case 'ArrowDown':  setFocus(focusRow + 1, focusCol); break;
+                case 'ArrowLeft':  setFocus(focusRow, focusCol - 1); break;
+                case 'ArrowRight': setFocus(focusRow, focusCol + 1); break;
+            }
+        }
+    });
+
+    // Click on cell sets focus
+    grid.addEventListener('click', function(e) {
+        const td = e.target.closest('td[data-row][data-col]');
+        if (td) {
+            setFocus(parseInt(td.dataset.row), parseInt(td.dataset.col));
+        }
+    });
+
+    // Click outside grid clears edit
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#plannerGrid') && !e.target.closest('.modal') && isEditing()) {
+            cancelEdit();
+        }
+    });
+
+    // After HTMX swap (cell saved/cancelled), restore focus and clear editing state
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.target.closest && e.target.closest('.plan-cell-wrapper')) {
+            editing = false;
+            if (focusRow >= 0 && focusCol >= 0) {
+                setTimeout(function() { setFocus(focusRow, focusCol); }, 50);
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

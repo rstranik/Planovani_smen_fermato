@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}Omezení a absence{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-calendar-x"></i> Omezení a absence</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+        <i class="bi bi-plus-lg"></i> Přidat omezení
+    </button>
+</div>
+
+<!-- Filter -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 text-muted" style="font-size:0.85rem;">Filtr:</label>
+            <select name="employee_id" class="form-select form-select-sm" style="max-width:250px;"
+                    onchange="this.form.submit()">
+                <option value="">Všichni zaměstnanci</option>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}" {{ 'selected' if selected_employee == emp.id }}>
+                    {{ emp.name }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if selected_employee %}
+            <a href="{{ url_for('constraints.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-x-lg"></i> Zrušit filtr
+            </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Constraints Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if constraints %}
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Zaměstnanec</th>
+                    <th>Typ</th>
+                    <th>Od</th>
+                    <th>Do</th>
+                    <th>Poznámka</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in constraints %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('employees.detail', emp_id=c.employee_id) }}"
+                           class="text-decoration-none">
+                            {{ c.employee_name }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="absence-badge absence-{{ c.type }}">
+                            {% for val, label in absence_types %}
+                                {% if val == c.type %}{{ label }}{% endif %}
+                            {% endfor %}
+                        </span>
+                    </td>
+                    <td>{{ c.date_from|czdate }}</td>
+                    <td>{{ c.date_to|czdate }}</td>
+                    <td class="text-muted" style="font-size:0.85rem;">{{ c.note or '—' }}</td>
+                    <td class="text-end">
+                        <button class="btn btn-action btn-outline-primary"
+                                data-bs-toggle="modal" data-bs-target="#editModal{{ c.id }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="POST"
+                              action="{{ url_for('constraints.delete', constraint_id=c.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('Opravdu smazat toto omezení?')">
+                            <button class="btn btn-action btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-calendar-check d-block"></i>
+            <h5>Žádná omezení</h5>
+            <p class="text-muted">
+                {% if selected_employee %}
+                    Tento zaměstnanec nemá žádná omezení.
+                {% else %}
+                    Zatím nejsou zadána žádná omezení ani absence.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('constraints.add') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Přidat omezení</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Zaměstnanec *</label>
+                        <select name="employee_id" class="form-select" required>
+                            <option value="">Vyberte...</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Typ absence *</label>
+                        <select name="type" class="form-select" required>
+                            {% for val, label in absence_types %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Datum od *</label>
+                            <input type="date" name="date_from" class="form-control" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Datum do *</label>
+                            <input type="date" name="date_to" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Poznámka</label>
+                        <textarea name="note" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Uložit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modals (one per constraint) -->
+{% for c in constraints %}
+<div class="modal fade" id="editModal{{ c.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('constraints.edit', constraint_id=c.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil"></i> Upravit omezení</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Zaměstnanec *</label>
+                        <select name="employee_id" class="form-select" required>
+                            {% for emp in employees %}
+                            <option value="{{ emp.id }}" {{ 'selected' if emp.id == c.employee_id }}>
+                                {{ emp.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Typ absence *</label>
+                        <select name="type" class="form-select" required>
+                            {% for val, label in absence_types %}
+                            <option value="{{ val }}" {{ 'selected' if val == c.type }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Datum od *</label>
+                            <input type="date" name="date_from" class="form-control"
+                                   value="{{ c.date_from }}" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Datum do *</label>
+                            <input type="date" name="date_to" class="form-control"
+                                   value="{{ c.date_to }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Poznámka</label>
+                        <textarea name="note" class="form-control" rows="2">{{ c.note or '' }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Uložit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}

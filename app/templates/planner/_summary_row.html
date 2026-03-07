@@ -1,0 +1,25 @@
+{# Staffing summary row - loaded via HTMX after cell edits #}
+<tr class="table-light">
+    <td class="emp-name fw-bold">Obsazení</td>
+    {% for d in dates %}
+    <td class="summary-cell {{ 'col-weekend' if d.weekday() >= 5 }}">
+        {% for s in summary.get(d.isoformat(), []) %}
+        <div>
+            <span class="dept-badge-sm" style="background-color: #{{ s.color }}">{{ s.name }}</span>
+            <span class="{% if s.staff_count < s.min_staff %}staff-danger{% elif s.staff_count >= s.min_staff %}staff-ok{% endif %}">
+                {{ s.staff_count }}/{{ s.min_staff }}
+            </span>
+        </div>
+        {% endfor %}
+        {# Task-level staffing (only tasks with min_staff > 0) #}
+        {% for t in task_summary.get(d.isoformat(), []) %}
+        <div class="task-summary-line">
+            <small class="text-muted">↳ {{ t.name }}</small>
+            <span class="{% if t.staff_count < t.min_staff %}staff-danger{% elif t.staff_count >= t.min_staff %}staff-ok{% endif %}">
+                {{ t.staff_count }}/{{ t.min_staff }}
+            </span>
+        </div>
+        {% endfor %}
+    </td>
+    {% endfor %}
+</tr>

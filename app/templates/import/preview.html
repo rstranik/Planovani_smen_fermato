@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Import – Náhled{% endblock %}
+
+{% block extra_css %}
+<style>
+    .import-table td, .import-table th { font-size: 0.85rem; vertical-align: middle; }
+    .badge-new { background-color: #198754; }
+    .badge-exists { background-color: #6c757d; }
+    .badge-dept { font-size: 0.75rem; }
+    tr.row-inactive { opacity: 0.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-eye"></i> Náhled importu</h1>
+    <a href="{{ url_for('import_csv.index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Zpět
+    </a>
+</div>
+
+<div class="alert alert-info d-flex align-items-center mb-3">
+    <i class="bi bi-info-circle me-2 fs-5"></i>
+    <div>
+        Nalezeno <strong>{{ total }}</strong> zaměstnanců:
+        <span class="badge badge-new">{{ new_count }} nových</span>
+        <span class="badge badge-exists">{{ existing_count }} existujících</span>.
+        Zaškrtněte koho importovat.
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('import_csv.confirm') }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+
+    <div class="mb-3 d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleAll(true)">
+            <i class="bi bi-check-all"></i> Vybrat vše
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">
+            <i class="bi bi-x-lg"></i> Odznačit vše
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-success" onclick="toggleNew()">
+            <i class="bi bi-person-plus"></i> Jen nové
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover import-table">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:40px">
+                        <input type="checkbox" id="checkAll" checked
+                               onchange="toggleAll(this.checked)">
+                    </th>
+                    <th>Jméno</th>
+                    <th>Středisko</th>
+                    <th>→ Oddělení</th>
+                    <th>Pozice</th>
+                    <th>Typ</th>
+                    <th>Hodiny</th>
+                    <th>Email</th>
+                    <th>Stav</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr class="{{ 'row-inactive' if not emp.active }}">
+                    <td>
+                        <input type="checkbox" name="import_{{ loop.index0 }}" value="1"
+                               class="import-check" {{ 'checked' if emp.active }}>
+                    </td>
+                    <td class="fw-semibold">{{ emp.name }}</td>
+                    <td>
+                        {% if emp.stredisko %}
+                            <span class="badge bg-secondary badge-dept">{{ emp.stredisko }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if emp.dept_mapped %}
+                            <span class="badge bg-primary badge-dept">{{ emp.dept_mapped }}</span>
+                        {% elif emp.stredisko == 'Management' %}
+                            <span class="text-muted small">management</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ emp.pozice or '—' }}</td>
+                    <td>
+                        {% if emp.typ %}
+                            <span class="badge bg-{{ 'primary' if emp.typ == 'HPP' else 'warning text-dark' if emp.typ == 'DPP' else 'info' if emp.typ == 'Brigáda' else 'secondary' }}">
+                                {{ emp.typ }}
+                            </span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>{{ (emp.hodiny|string + 'h') if emp.hodiny else '—' }}</td>
+                    <td>
+                        {% if emp.email %}
+                            <small>{{ emp.email }}</small>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if emp.exists %}
+                            <span class="badge badge-exists" title="ID {{ emp.existing_id }}">existuje</span>
+                        {% else %}
+                            <span class="badge badge-new">nový</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-check-lg"></i> Importovat vybrané
+        </button>
+        <a href="{{ url_for('import_csv.index') }}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-x-lg"></i> Zrušit
+        </a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAll(checked) {
+    document.querySelectorAll('.import-check').forEach(cb => cb.checked = checked);
+    document.getElementById('checkAll').checked = checked;
+}
+
+function toggleNew() {
+    document.querySelectorAll('.import-check').forEach(cb => cb.checked = false);
+    // Check only rows with "nový" badge
+    document.querySelectorAll('.badge-new').forEach(badge => {
+        const row = badge.closest('tr');
+        if (row) {
+            const cb = row.querySelector('.import-check');
+            if (cb) cb.checked = true;
+        }
+    });
+}
+</script>
+{% endblock %}

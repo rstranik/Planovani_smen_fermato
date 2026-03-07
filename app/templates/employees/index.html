@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Zaměstnanci{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-people"></i> Zaměstnanci</h1>
+    <a href="{{ url_for('employees.add') }}" class="btn btn-primary">
+        <i class="bi bi-person-plus"></i> Přidat zaměstnance
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Jméno</th>
+                    <th>Výchozí směna</th>
+                    <th>Poznámka</th>
+                    <th>Stav</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for emp in employees %}
+                <tr class="{{ 'text-muted' if not emp.active }}">
+                    <td>
+                        <a href="{{ url_for('employees.detail', emp_id=emp.id) }}" class="text-decoration-none fw-bold">
+                            {{ emp.name }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if emp.shift_name %}
+                            <span class="shift-badge {{ emp.shift_name|lower|replace('í','i')|replace('á','a')|replace('č','c') }}">
+                                {{ emp.shift_name }} ({{ emp.start_time }}–{{ emp.end_time }})
+                            </span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ emp.note or '' }}</td>
+                    <td>
+                        {% if emp.active %}
+                            <span class="badge bg-success">Aktivní</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Neaktivní</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('employees.edit', emp_id=emp.id) }}" class="btn btn-action btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('employees.toggle', emp_id=emp.id) }}" class="d-inline">
+                            <button class="btn btn-action btn-outline-{{ 'warning' if emp.active else 'success' }}"
+                                    title="{{ 'Deaktivovat' if emp.active else 'Aktivovat' }}">
+                                <i class="bi bi-{{ 'eye-slash' if emp.active else 'eye' }}"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% if not employees %}
+        <div class="empty-state">
+            <i class="bi bi-people d-block"></i>
+            <h5>Zatím žádní zaměstnanci</h5>
+            <p class="text-muted">Přidejte prvního zaměstnance.</p>
+            <a href="{{ url_for('employees.add') }}" class="btn btn-primary">
+                <i class="bi bi-person-plus"></i> Přidat zaměstnance
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

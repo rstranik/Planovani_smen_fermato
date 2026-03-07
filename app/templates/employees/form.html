@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Upravit' if employee else 'Nový' }} zaměstnanec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>
+        <i class="bi bi-person-{{ 'gear' if employee else 'plus' }}"></i>
+        {{ 'Upravit: ' + employee.name if employee else 'Nový zaměstnanec' }}
+    </h1>
+</div>
+
+<form method="POST">
+    <div class="row g-3">
+        <!-- Basic info -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Základní údaje</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Jméno a příjmení</label>
+                        <input type="text" name="name" class="form-control"
+                               value="{{ employee.name if employee else '' }}" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Výchozí směna</label>
+                        <select name="default_shift_id" class="form-select">
+                            <option value="">-- Bez výchozí směny --</option>
+                            {% for shift in shifts %}
+                            <option value="{{ shift.id }}"
+                                {{ 'selected' if employee and employee.default_shift_id == shift.id }}>
+                                {{ shift.name }} ({{ shift.start_time }}–{{ shift.end_time }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control"
+                               value="{{ employee.email if employee else '' }}"
+                               placeholder="jmeno@fermato.cz">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Poznámka</label>
+                        <textarea name="note" class="form-control" rows="2">{{ employee.note if employee else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Qualifications -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Kvalifikace (co umí dělat)</div>
+                <div class="card-body">
+                    {% set qual_set = [] %}
+                    {% if qualifications is defined and qualifications %}
+                        {% for q in qualifications %}
+                            {% if q.task_id %}
+                                {% set _ = qual_set.append(q.department_id|string + '_' + q.task_id|string) %}
+                            {% else %}
+                                {% set _ = qual_set.append(q.department_id|string) %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+
+                    {% set dept_ids_seen = [] %}
+                    {% for task in tasks %}
+                        {% if task.department_id not in dept_ids_seen %}
+                            {% set _ = dept_ids_seen.append(task.department_id) %}
+                            <div class="mb-3">
+                                <div class="fw-bold mb-1">
+                                    <span class="dept-badge" style="background-color: #{{ task.dept_color }}">
+                                        {{ task.dept_name }}
+                                    </span>
+                                </div>
+                                <div class="ms-3">
+                                    {% for t in tasks %}
+                                    {% if t.department_id == task.department_id %}
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input"
+                                               name="qual_{{ t.department_id }}_{{ t.id }}"
+                                               id="qual_{{ t.department_id }}_{{ t.id }}"
+                                               {{ 'checked' if (t.department_id|string + '_' + t.id|string) in qual_set or t.department_id|string in qual_set }}>
+                                        <label class="form-check-label" for="qual_{{ t.department_id }}_{{ t.id }}">
+                                            {{ t.name }}
+                                        </label>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if not tasks %}
+                    <p class="text-muted mb-0">
+                        Nejdříve přidejte práce v <a href="{{ url_for('settings.index') }}">Nastavení</a>.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> {{ 'Uložit změny' if employee else 'Přidat zaměstnance' }}
+        </button>
+        <a href="{{ url_for('employees.detail', emp_id=employee.id) if employee else url_for('employees.index') }}"
+           class="btn btn-secondary">Zrušit</a>
+    </div>
+</form>
+{% endblock %}

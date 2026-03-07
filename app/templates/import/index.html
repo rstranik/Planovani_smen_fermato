@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Import zaměstnanců{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-upload"></i> Import zaměstnanců</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-file-earmark-excel"></i> Nahrát soubor z HR systému
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('import_csv.upload') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Excel soubor (.xlsx)</label>
+                        <input type="file" class="form-control" id="file" name="file"
+                               accept=".xlsx,.xls" required>
+                        <div class="form-text">
+                            Export z DJR HR systému — soubor <code>Zaměstnanec.xlsx</code>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload"></i> Nahrát a zobrazit náhled
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Mapování sloupců
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>HR sloupec</th><th>→ Aplikace</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>Příjmení + Jméno</code></td><td>Jméno zaměstnance</td></tr>
+                        <tr><td><code>Středisko</code></td><td>Kvalifikace (oddělení)</td></tr>
+                        <tr><td><code>Pozice</code></td><td>Poznámka</td></tr>
+                        <tr><td><code>Typ prac. poměru</code></td><td>Poznámka</td></tr>
+                        <tr><td><code>Týdenní prac. doba</code></td><td>Poznámka</td></tr>
+                        <tr><td><code>Konec prac. poměru</code></td><td>Aktivní (pokud = 2222)</td></tr>
+                    </tbody>
+                </table>
+                <hr>
+                <small class="text-muted">
+                    <strong>Středisko → Oddělení:</strong>
+                    Výroba → VÝR, Expedice → EXP, VINACZ → VÝR (+ kvalif. VINACZ task).
+                    Management a prázdné se přeskočí.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

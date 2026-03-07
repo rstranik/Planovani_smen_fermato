@@ -1,0 +1,168 @@
+/* ============================================
+   Plánování směn - FerMato
+   ============================================ */
+
+:root {
+    --fm-primary: #2563eb;
+    --fm-vyr-bg: #FFF2CC;
+    --fm-exp-bg: #CFE2F3;
+}
+
+body {
+    background-color: #f8f9fa;
+    font-size: 0.9rem;
+}
+
+/* Navbar */
+.navbar {
+    padding: 0.4rem 1rem;
+}
+.navbar-brand {
+    font-size: 1.1rem;
+}
+.nav-link {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.85rem;
+}
+
+/* Cards */
+.card {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.card-header {
+    background: white;
+    border-bottom: 2px solid #e9ecef;
+    font-weight: 600;
+}
+
+/* Tables */
+.table th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.03em;
+}
+.table td {
+    vertical-align: middle;
+}
+
+/* Department color badges */
+.dept-badge {
+    display: inline-block;
+    padding: 0.2em 0.6em;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Action buttons in tables */
+.btn-action {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Page header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Shift badge */
+.shift-badge {
+    display: inline-block;
+    padding: 0.15em 0.5em;
+    border-radius: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.shift-badge.ranni { background: #d1fae5; color: #065f46; }
+.shift-badge.odpoledni { background: #fef3c7; color: #92400e; }
+.shift-badge.nocni { background: #e0e7ff; color: #3730a3; }
+
+/* Qualification chips */
+.qual-chip {
+    display: inline-block;
+    padding: 0.1em 0.5em;
+    margin: 0.1em;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    background: #e9ecef;
+    color: #495057;
+}
+
+/* Pattern table */
+.pattern-table td {
+    text-align: center;
+    padding: 0.3rem;
+    min-width: 100px;
+}
+.pattern-table .day-header {
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator {
+    display: inline-block;
+}
+
+/* Modal improvements */
+.modal-header {
+    background: #f8f9fa;
+    border-bottom: 2px solid #e9ecef;
+}
+
+/* Sortable handle */
+.sort-handle {
+    cursor: grab;
+    color: #adb5bd;
+}
+.sort-handle:hover {
+    color: #495057;
+}
+
+/* Task-level summary in planner */
+.task-summary-line {
+    font-size: 0.72rem;
+    padding-left: 0.3rem;
+    line-height: 1.4;
+}
+
+/* Absence badges (shared: planner + constraints page) */
+.absence-badge {
+    display: inline-block;
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.absence-dovolena { background: #fef3c7; color: #92400e; }
+.absence-nemoc { background: #fecaca; color: #991b1b; }
+.absence-lekar { background: #e0e7ff; color: #3730a3; }
+.absence-osobni { background: #d1fae5; color: #065f46; }
+.absence-nahradni { background: #f3e8ff; color: #6b21a8; }
+.absence-jine { background: #e5e7eb; color: #374151; }
