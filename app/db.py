@@ -41,6 +41,25 @@ def _migrate_db(db):
             db.execute("ALTER TABLE employees ADD COLUMN email TEXT DEFAULT ''")
             db.commit()
 
+    # Add email tracking to weekly_plans (two-phase: first send + update send)
+    if 'weekly_plans' in tables:
+        plan_cols = [r[1] for r in db.execute("PRAGMA table_info(weekly_plans)").fetchall()]
+        if 'email_sent_at' not in plan_cols:
+            db.execute("ALTER TABLE weekly_plans ADD COLUMN email_sent_at TIMESTAMP")
+            db.execute("ALTER TABLE weekly_plans ADD COLUMN email_sent_count INTEGER DEFAULT 0")
+            db.commit()
+        if 'email_first_sent_at' not in plan_cols:
+            db.execute("ALTER TABLE weekly_plans ADD COLUMN email_first_sent_at TIMESTAMP")
+            db.execute("ALTER TABLE weekly_plans ADD COLUMN email_first_sent_to INTEGER DEFAULT 0")
+            db.execute("ALTER TABLE weekly_plans ADD COLUMN email_update_sent_at TIMESTAMP")
+            db.execute("ALTER TABLE weekly_plans ADD COLUMN email_update_sent_to INTEGER DEFAULT 0")
+            # Migrate existing data from legacy columns
+            db.execute("""UPDATE weekly_plans
+                          SET email_first_sent_at = email_sent_at,
+                              email_first_sent_to = email_sent_count
+                          WHERE email_sent_at IS NOT NULL""")
+            db.commit()
+
     # Ensure app_settings table exists
     db.execute("""
         CREATE TABLE IF NOT EXISTS app_settings (

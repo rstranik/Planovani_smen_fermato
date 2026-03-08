@@ -34,15 +34,14 @@ def is_smtp_configured():
     return bool(smtp['username'] and smtp['password'])
 
 
-def send_schedule_email(to_email, employee_name, week_label, xlsx_bytes, filename):
-    """Send weekly schedule as Excel attachment.
+def send_schedule_email(to_email, employee_name, week_label, attachments):
+    """Send weekly schedule as Excel attachment(s).
 
     Args:
         to_email: recipient email address
         employee_name: employee's display name (for greeting)
-        week_label: e.g. "týden 10/2026"
-        xlsx_bytes: Excel file content as bytes
-        filename: attachment filename e.g. "Plan_smen_09.03.-15.03.2026.xlsx"
+        week_label: e.g. "týdny 10–11/2026"
+        attachments: list of (xlsx_bytes, filename) tuples
 
     Raises:
         ValueError: if SMTP is not configured
@@ -67,15 +66,16 @@ def send_schedule_email(to_email, employee_name, week_label, xlsx_bytes, filenam
     )
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-    # Excel attachment
-    part = MIMEBase(
-        'application',
-        'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    part.set_payload(xlsx_bytes)
-    encoders.encode_base64(part)
-    part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-    msg.attach(part)
+    # Excel attachment(s)
+    for xlsx_bytes, filename in attachments:
+        part = MIMEBase(
+            'application',
+            'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        part.set_payload(xlsx_bytes)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+        msg.attach(part)
 
     # Send via SMTP
     server = smtplib.SMTP(smtp['server'], smtp['port'], timeout=15)

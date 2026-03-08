@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.models.plan import (
     get_plan, get_all_plans, update_plan_status, delete_plan,
-    upsert_assignment, clear_assignment, clear_day
+    upsert_assignment, clear_assignment, clear_day, update_email_sent
 )
 from app.models.employee import get_employee
 from app.models.department import get_all_departments, get_tasks_for_department
@@ -54,6 +54,52 @@ def week_view(week_start):
     next_week = (ws + timedelta(weeks=1)).isoformat()
     today_week = get_monday().isoformat()
 
+    # Thursday sending schedule (internal policy: every Thursday send for next 2 weeks)
+    # For a week starting Monday: first send = Thursday 11 days before, update = Thursday 4 days before
+    today = date.today()
+    first_send_thu = ws - timedelta(days=11)   # Thursday 2 weeks before week start
+    update_send_thu = ws - timedelta(days=4)   # Thursday 1 week before week start
+    first_sent = bool(plan['email_first_sent_at']) if plan['email_first_sent_at'] else False
+    update_sent = bool(plan['email_update_sent_at']) if plan['email_update_sent_at'] else False
+
+    # Determine what the next send action should be
+    if not first_sent:
+        current_send_type = 'first'
+    else:
+        current_send_type = 'update'
+
+    # Get send status of surrounding weeks (for "which weeks were sent" overview)
+    # This Thursday's send covers: next week (week_start+7..+13 from Thu) and week after (week_start+14..+20)
+    # Show status for Week+1 and Week+2 from current viewed week
+    from app.db import get_db
+    db_conn = get_db()
+    nearby_weeks = []
+    for offset in [-1, 0, 1, 2]:
+        nw_start = (ws + timedelta(weeks=offset)).isoformat()
+        nw_plan = db_conn.execute(
+            "SELECT week_start, week_number, year, email_first_sent_at, email_first_sent_to, "
+            "email_update_sent_at, email_update_sent_to FROM weekly_plans WHERE week_start = ?",
+            (nw_start,)
+        ).fetchone()
+        if nw_plan:
+            nearby_weeks.append(dict(nw_plan))
+        else:
+            # Week plan doesn't exist yet
+            nw_date = ws + timedelta(weeks=offset)
+            nearby_weeks.append({
+                'week_start': nw_start,
+                'week_number': nw_date.isocalendar()[1],
+                'year': nw_date.year,
+                'email_first_sent_at': None, 'email_first_sent_to': 0,
+                'email_update_sent_at': None, 'email_update_sent_to': 0,
+            })
+
+    # Next week info (for two-week email sending display)
+    next_ws_date = ws + timedelta(weeks=1)
+    next_week_number = next_ws_date.isocalendar()[1]
+    next_week_year = next_ws_date.year
+    next_week_dates = get_week_dates(next_ws_date.isoformat())
+
     return render_template('planner/week.html',
                            plan=plan, grid=grid, dates=dates,
                            summary=summary, task_summary=task_summary,
@@ -63,7 +109,17 @@ def week_view(week_start):
                            week_start=week_start,
                            prev_week=prev_week, next_week=next_week,
                            today_week=today_week,
-                           absence_types=ABSENCE_TYPES)
+                           absence_types=ABSENCE_TYPES,
+                           first_send_thu=first_send_thu,
+                           update_send_thu=update_send_thu,
+                           first_sent=first_sent,
+                           update_sent=update_sent,
+                           current_send_type=current_send_type,
+                           today=today,
+                           nearby_weeks=nearby_weeks,
+                           next_week_number=next_week_number,
+                           next_week_year=next_week_year,
+                           next_week_dates=next_week_dates)
 
 
 @bp.route('/cell/<int:plan_id>/<int:emp_id>/<cell_date>', methods=['GET'])
@@ -204,9 +260,50 @@ def refill(plan_id):
     return redirect(url_for('planner.week_view', week_start=plan['week_start']))
 
 
+@bp.route('/fill-week/<int:plan_id>/<int:emp_id>', methods=['POST'])
+def fill_week(plan_id, emp_id):
+    """Fill entire week (Mon-Fri by default) with same shift/dept/task."""
+    plan = get_plan(plan_id)
+    if not plan:
+        flash('Plán nenalezen.', 'error')
+        return redirect(url_for('planner.index'))
+
+    shift_id = request.form.get('shift_template_id') or None
+    dept_id = request.form.get('department_id') or None
+    task_id = request.form.get('task_id') or None
+    note = request.form.get('note', '')
+    include_weekends = request.form.get('include_weekends') == '1'
+    is_absence = request.form.get('action') == 'absence'
+    absence_type = request.form.get('absence_type', 'jine')
+
+    dates = get_week_dates(plan['week_start'])
+    filled = 0
+    for i, d in enumerate(dates):
+        # Skip weekends unless explicitly included
+        if not include_weekends and i >= 5:
+            continue
+        if is_absence:
+            upsert_assignment(plan_id, emp_id, d.isoformat(),
+                              is_absence=1, absence_type=absence_type, note=note)
+        else:
+            upsert_assignment(plan_id, emp_id, d.isoformat(),
+                              shift_template_id=shift_id, department_id=dept_id,
+                              task_id=task_id, note=note)
+        filled += 1
+
+    emp = get_employee(emp_id)
+    emp_name = emp['name'] if emp else '?'
+    flash(f'{emp_name}: vyplněno {filled} dní.', 'success')
+    return redirect(url_for('planner.week_view', week_start=plan['week_start']))
+
+
 @bp.route('/send-email/<int:plan_id>', methods=['POST'])
 def send_email(plan_id):
-    """Send weekly schedule via email to selected employees."""
+    """Send weekly schedule via email to selected employees.
+
+    Always sends TWO weeks: the current viewed week + next week.
+    Each week is a separate Excel attachment in the same email.
+    """
     plan = get_plan(plan_id)
     if not plan:
         flash('Plán nenalezen.', 'error')
@@ -216,18 +313,33 @@ def send_email(plan_id):
         flash('SMTP není nakonfigurován. Nastavte MAIL_USERNAME a MAIL_PASSWORD v prostředí.', 'error')
         return redirect(url_for('planner.week_view', week_start=plan['week_start']))
 
+    send_type = request.form.get('send_type', 'first')
     emp_ids = request.form.getlist('emp_ids')
     if not emp_ids:
         flash('Nebyli vybráni žádní zaměstnanci.', 'warning')
         return redirect(url_for('planner.week_view', week_start=plan['week_start']))
 
-    # Generate Excel once (shared attachment for all recipients)
-    grid, dates = build_plan_grid(plan_id, plan['week_start'])
-    summary, task_summary = get_staffing_summary(plan_id, dates)
-    xlsx_bytes = generate_week_excel(plan, grid, dates, summary, task_summary)
+    # --- Week 1 (current) ---
+    grid1, dates1 = build_plan_grid(plan_id, plan['week_start'])
+    summary1, task_summary1 = get_staffing_summary(plan_id, dates1)
+    xlsx1 = generate_week_excel(plan, grid1, dates1, summary1, task_summary1)
+    fn1 = f"Plan_smen_{dates1[0].strftime('%d.%m.')}-{dates1[6].strftime('%d.%m.%Y')}.xlsx"
 
-    week_label = f"týden {plan['week_number']}/{plan['year']}"
-    filename = f"Plan_smen_{dates[0].strftime('%d.%m.')}-{dates[6].strftime('%d.%m.%Y')}.xlsx"
+    # --- Week 2 (next week) ---
+    parts = plan['week_start'].split('-')
+    ws = date(int(parts[0]), int(parts[1]), int(parts[2]))
+    next_ws = (ws + timedelta(weeks=1)).isoformat()
+    next_plan_id, _ = create_or_get_plan(next_ws)
+    next_plan = get_plan(next_plan_id)
+
+    grid2, dates2 = build_plan_grid(next_plan_id, next_ws)
+    summary2, task_summary2 = get_staffing_summary(next_plan_id, dates2)
+    xlsx2 = generate_week_excel(next_plan, grid2, dates2, summary2, task_summary2)
+    fn2 = f"Plan_smen_{dates2[0].strftime('%d.%m.')}-{dates2[6].strftime('%d.%m.%Y')}.xlsx"
+
+    # --- Build attachments list and label ---
+    attachments = [(xlsx1, fn1), (xlsx2, fn2)]
+    week_label = f"týdny {plan['week_number']}–{next_plan['week_number']}/{plan['year']}"
 
     sent = 0
     errors = []
@@ -235,15 +347,20 @@ def send_email(plan_id):
         emp = get_employee(int(eid))
         if emp and emp['email']:
             try:
-                send_schedule_email(emp['email'], emp['name'], week_label, xlsx_bytes, filename)
+                send_schedule_email(emp['email'], emp['name'], week_label, attachments)
                 sent += 1
             except Exception as e:
                 logger.error(f"Email failed for {emp['name']} ({emp['email']}): {e}")
                 errors.append(emp['name'])
 
+    # Update email tracking for BOTH weeks
+    if sent > 0:
+        update_email_sent(plan_id, sent, send_type)
+        update_email_sent(next_plan_id, sent, send_type)
+
     if errors:
         flash(f'Odesláno: {sent}. Chyba u: {", ".join(errors)}', 'error')
     else:
-        flash(f'Rozpis odeslán {sent} zaměstnanc{"i" if sent == 1 else "ům"}.', 'success')
+        flash(f'Rozpis na 2 týdny odeslán {sent} zaměstnanc{"i" if sent == 1 else "ům"}.', 'success')
 
     return redirect(url_for('planner.week_view', week_start=plan['week_start']))

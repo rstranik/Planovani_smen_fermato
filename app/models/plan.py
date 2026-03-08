@@ -45,6 +45,31 @@ def delete_plan(plan_id):
     db.commit()
 
 
+def update_email_sent(plan_id, count, send_type='first'):
+    """Record that schedule emails were sent for this plan.
+
+    send_type: 'first' = initial preview send (2 weeks ahead),
+               'update' = updated schedule send (1 week ahead).
+    """
+    db = get_db()
+    if send_type == 'update':
+        db.execute(
+            "UPDATE weekly_plans SET email_update_sent_at = CURRENT_TIMESTAMP, email_update_sent_to = ? WHERE id = ?",
+            (count, plan_id)
+        )
+    else:
+        db.execute(
+            "UPDATE weekly_plans SET email_first_sent_at = CURRENT_TIMESTAMP, email_first_sent_to = ? WHERE id = ?",
+            (count, plan_id)
+        )
+    # Also update legacy columns
+    db.execute(
+        "UPDATE weekly_plans SET email_sent_at = CURRENT_TIMESTAMP, email_sent_count = ? WHERE id = ?",
+        (count, plan_id)
+    )
+    db.commit()
+
+
 # --- Assignments ---
 
 def get_assignments_for_plan(plan_id):
