@@ -169,10 +169,15 @@ def smtp_save():
             flash('Pro test je potřeba vyplnit uživatele a heslo.', 'error')
         else:
             try:
-                srv = smtplib.SMTP(smtp['server'], int(smtp['port']), timeout=10)
-                try:
-                    if smtp['use_tls'] != 'false':
+                port = int(smtp['port'])
+                use_tls = smtp['use_tls'] != 'false'
+                if port == 465:
+                    srv = smtplib.SMTP_SSL(smtp['server'], port, timeout=10)
+                else:
+                    srv = smtplib.SMTP(smtp['server'], port, timeout=10)
+                    if use_tls:
                         srv.starttls()
+                try:
                     srv.login(test_user, test_pass)
                     flash(f'Připojení k {smtp["server"]} úspěšné! ✓', 'success')
                 finally:

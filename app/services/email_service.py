@@ -78,10 +78,14 @@ def send_schedule_email(to_email, employee_name, week_label, attachments):
         msg.attach(part)
 
     # Send via SMTP
-    server = smtplib.SMTP(smtp['server'], smtp['port'], timeout=15)
-    try:
+    port = int(smtp['port'])
+    if port == 465:
+        server = smtplib.SMTP_SSL(smtp['server'], port, timeout=15)
+    else:
+        server = smtplib.SMTP(smtp['server'], port, timeout=15)
         if smtp['use_tls']:
             server.starttls()
+    try:
         server.login(smtp['username'], smtp['password'])
         server.sendmail(sender, [to_email], msg.as_string())
     finally:
