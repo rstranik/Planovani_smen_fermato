@@ -4,9 +4,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-fermato-planovani-smen')
-    DATABASE = os.path.join(BASE_DIR, 'instance', 'planovani_smen.db')
-    EXPORT_DIR = os.path.join(BASE_DIR, 'instance', 'exports')
-    UPLOAD_DIR = os.path.join(BASE_DIR, 'instance', 'uploads')
+    DATABASE = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'instance', 'planovani_smen.db'))
+    EXPORT_DIR = os.path.join(os.path.dirname(DATABASE), 'exports')
+    UPLOAD_DIR = os.path.join(os.path.dirname(DATABASE), 'uploads')
 
     # Email (SMTP)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
