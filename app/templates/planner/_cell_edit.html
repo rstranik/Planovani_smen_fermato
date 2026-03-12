@@ -44,13 +44,40 @@
 
         <!-- Absence tab (hidden by default) -->
         <div class="cell-tab-content d-none" id="tab-absence-{{ emp_id }}-{{ cell_date }}">
-            <select name="absence_type" class="form-select form-select-sm mb-1">
+            <select name="absence_type" class="form-select form-select-sm mb-1"
+                    onchange="togglePartialAbsence(this, '{{ emp_id }}-{{ cell_date }}')">
                 {% for val, label in absence_types %}
                 <option value="{{ val }}" {{ 'selected' if assignment and assignment.is_absence and assignment.absence_type == val }}>
                     {{ label }}
                 </option>
                 {% endfor %}
             </select>
+
+            <!-- Partial absence: work fields for lékař -->
+            <div class="partial-absence-work d-none" id="partial-work-{{ emp_id }}-{{ cell_date }}">
+                <small class="text-muted d-block mb-1">Zbytek dne:</small>
+                <select name="partial_shift_id" class="form-select form-select-sm mb-1">
+                    <option value="">Směna</option>
+                    {% for s in shifts %}
+                    <option value="{{ s.id }}" {{ 'selected' if assignment and assignment.is_absence and assignment.shift_template_id == s.id }}>
+                        {{ s.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <select name="partial_dept_id" class="form-select form-select-sm mb-1"
+                        onchange="loadCellTasks(this, '{{ emp_id }}-{{ cell_date }}')">
+                    <option value="">Oddělení</option>
+                    {% for d in departments %}
+                    <option value="{{ d.id }}" {{ 'selected' if assignment and assignment.is_absence and assignment.department_id == d.id }}>
+                        {{ d.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <select name="partial_task_id" class="form-select form-select-sm mb-1"
+                        id="cell-task-{{ emp_id }}-{{ cell_date }}">
+                    <option value="">Práce</option>
+                </select>
+            </div>
         </div>
 
         <input name="note" class="form-control form-control-sm mb-1" placeholder="Pozn."
@@ -77,11 +104,27 @@
 </div>
 
 <script>
-// Load tasks for selected department in this cell
 (function() {
+    // Load tasks for selected department in this cell (work tab)
     const deptSelect = document.querySelector('#tab-work-{{ emp_id }}-{{ cell_date }} [name="department_id"]');
     if (deptSelect && deptSelect.value) {
         loadCellTasks(deptSelect, '{{ emp_id }}-{{ cell_date }}', '{{ assignment.task_id if assignment and assignment.task_id else '' }}');
     }
+
+    // If editing existing partial absence (lékař with work), show partial fields & load tasks
+    {% if assignment and assignment.is_absence and assignment.absence_type == 'lekar' %}
+    const absenceSelect = document.querySelector('#tab-absence-{{ emp_id }}-{{ cell_date }} [name="absence_type"]');
+    if (absenceSelect) togglePartialAbsence(absenceSelect, '{{ emp_id }}-{{ cell_date }}');
+    const partialDept = document.querySelector('#partial-work-{{ emp_id }}-{{ cell_date }} [name="partial_dept_id"]');
+    if (partialDept && partialDept.value) {
+        loadCellTasks(partialDept, '{{ emp_id }}-{{ cell_date }}', '{{ assignment.task_id if assignment and assignment.task_id else '' }}');
+    }
+    // Switch to absence tab since this is an absence
+    const absTab = document.querySelector('#tab-absence-{{ emp_id }}-{{ cell_date }}').closest('.cell-edit-form');
+    if (absTab) {
+        const absBtn = absTab.querySelector('[data-tab="absence"]');
+        if (absBtn) switchCellTab(absBtn, 'absence');
+    }
+    {% endif %}
 })();
 </script>

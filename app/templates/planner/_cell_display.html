@@ -13,6 +13,13 @@
                 {{ absence_labels.get(a.absence_type, a.absence_type) }}
             </span>
             {% if a.note %}<small class="cell-note">{{ a.note }}</small>{% endif %}
+            {# Partial absence (lékař): also show work assignment #}
+            {% if a.dept_name or a.task_name or a.shift_name %}
+                <small class="partial-work-label">
+                    {% if a.dept_name %}{{ a.dept_name }}{% endif %}
+                    {% if a.task_name %} · {{ a.task_name }}{% endif %}
+                </small>
+            {% endif %}
         {% else %}
             {% if a.dept_name %}
                 <span class="dept-badge-sm" style="background-color: #{{ a.dept_color or 'D9D9D9' }}">

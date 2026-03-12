@@ -922,6 +922,16 @@ function switchCellTab(btn, tab) {
     if (actionInput) actionInput.value = tab === 'absence' ? 'absence' : 'save';
 }
 
+function togglePartialAbsence(absenceSelect, cellId) {
+    const partialDiv = document.getElementById('partial-work-' + cellId);
+    if (!partialDiv) return;
+    if (absenceSelect.value === 'lekar') {
+        partialDiv.classList.remove('d-none');
+    } else {
+        partialDiv.classList.add('d-none');
+    }
+}
+
 /* --- Keyboard Navigation --- */
 (function() {
     const grid = document.getElementById('plannerGrid');

@@ -176,7 +176,8 @@ def get_day_summary(plan_id, date):
                   COUNT(a.id) as staff_count
            FROM departments d
            LEFT JOIN assignments a ON a.department_id = d.id
-                AND a.plan_id = ? AND a.date = ? AND a.is_absence = 0
+                AND a.plan_id = ? AND a.date = ?
+                AND (a.is_absence = 0 OR (a.is_absence = 1 AND a.department_id IS NOT NULL))
            WHERE d.active = 1
            GROUP BY d.id
            ORDER BY d.sort_order""",
@@ -194,7 +195,8 @@ def get_day_task_summary(plan_id, date):
            FROM tasks t
            JOIN departments d ON t.department_id = d.id
            LEFT JOIN assignments a ON a.task_id = t.id
-                AND a.plan_id = ? AND a.date = ? AND a.is_absence = 0
+                AND a.plan_id = ? AND a.date = ?
+                AND (a.is_absence = 0 OR (a.is_absence = 1 AND a.task_id IS NOT NULL))
            WHERE t.active = 1 AND d.active = 1 AND t.min_staff > 0
            GROUP BY t.id
            ORDER BY d.sort_order, t.name""",

@@ -3,6 +3,7 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from app.models.shift import get_all_shifts
 
 DAY_NAMES = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 
@@ -101,7 +102,10 @@ def generate_week_excel(plan, grid, dates, summary, task_summary):
     row += 1
 
     # --- Summary rows ---
-    _write_summary(ws, row, dates, summary, task_summary)
+    last_summary_row = _write_summary(ws, row, dates, summary, task_summary)
+
+    # --- Shift legend ---
+    _write_shift_legend(ws, last_summary_row + 1)
 
     # --- Column widths ---
     ws.column_dimensions['A'].width = 20  # Employee name
@@ -190,13 +194,25 @@ def _style_absence_cell(cell, assignment):
     label = ABSENCE_LABELS.get(absence_type, 'Jiné')
     bg_hex, font_hex = ABSENCE_COLORS.get(absence_type, ('E5E7EB', '374151'))
 
-    cell.value = label
-    cell.fill = PatternFill(start_color=bg_hex, end_color=bg_hex, fill_type='solid')
-    cell.font = Font(bold=True, size=9, color=font_hex)
-
+    parts = [label]
     note = _safe_get(assignment, 'note', '')
     if note:
-        cell.value = f'{label}\n{note}'
+        parts.append(note)
+
+    # Partial absence (lékař with work assignment)
+    dept_name = _safe_get(assignment, 'dept_name', '')
+    task_name = _safe_get(assignment, 'task_name', '')
+    if dept_name or task_name:
+        work_parts = []
+        if dept_name:
+            work_parts.append(dept_name)
+        if task_name:
+            work_parts.append(task_name)
+        parts.append(' · '.join(work_parts))
+
+    cell.value = '\n'.join(parts)
+    cell.fill = PatternFill(start_color=bg_hex, end_color=bg_hex, fill_type='solid')
+    cell.font = Font(bold=True, size=9, color=font_hex)
 
 
 def _style_assignment_cell(cell, a):
@@ -237,7 +253,7 @@ def _style_assignment_cell(cell, a):
 
 
 def _write_summary(ws, row, dates, summary, task_summary):
-    """Write staffing summary rows (department + task level)."""
+    """Write staffing summary rows (department + task level). Returns last used row."""
     # Header for summary section
     ws.row_dimensions[row].height = 20
     header_cell = ws.cell(row=row, column=1, value='OBSAZENÍ')
@@ -347,3 +363,28 @@ def _write_summary(ws, row, dates, summary, task_summary):
                     cell.fill = WEEKEND_FILL
 
             row += 1
+
+    return row
+
+
+def _write_shift_legend(ws, row):
+    """Write shift time legend below the summary."""
+    shifts = get_all_shifts()
+    if not shifts:
+        return
+
+    row += 1  # blank spacer row
+    ws.row_dimensions[row].height = 8
+    row += 1
+
+    legend_parts = []
+    for s in shifts:
+        start = s['start_time'][:5] if s['start_time'] else ''
+        end = s['end_time'][:5] if s['end_time'] else ''
+        legend_parts.append(f'{s["name"]} = {start}–{end}')
+
+    legend_text = 'Směny:  ' + '    |    '.join(legend_parts)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+    cell = ws.cell(row=row, column=1, value=legend_text)
+    cell.font = Font(size=8, color='6B7280', italic=True)
+    cell.alignment = Alignment(horizontal='left', vertical='center')

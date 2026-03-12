@@ -166,3 +166,10 @@ body {
 .absence-osobni { background: #d1fae5; color: #065f46; }
 .absence-nahradni { background: #f3e8ff; color: #6b21a8; }
 .absence-jine { background: #e5e7eb; color: #374151; }
+.partial-work-label {
+    display: block;
+    font-size: 0.65rem;
+    color: #6b7280;
+    margin-top: 1px;
+    font-style: italic;
+}

@@ -156,7 +156,17 @@ def save_cell(plan_id, emp_id, cell_date):
     elif action == 'absence':
         absence_type = request.form.get('absence_type', 'jine')
         note = request.form.get('note', '')
+        # Partial absence (lékař): also save work assignment for the rest of the day
+        shift_id = None
+        dept_id = None
+        task_id = None
+        if absence_type == 'lekar':
+            shift_id = request.form.get('partial_shift_id') or None
+            dept_id = request.form.get('partial_dept_id') or None
+            task_id = request.form.get('partial_task_id') or None
         upsert_assignment(plan_id, emp_id, cell_date,
+                          shift_template_id=shift_id, department_id=dept_id,
+                          task_id=task_id,
                           is_absence=1, absence_type=absence_type, note=note)
     else:
         shift_id = request.form.get('shift_template_id') or None
