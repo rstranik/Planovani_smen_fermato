@@ -1,41 +1,46 @@
-"""Email service using stdlib smtplib (no external dependencies).
+"""Email service using Resend API (HTTPS-based, no SMTP needed).
 
-Reads SMTP settings from DB (app_settings table) first,
-falls back to Flask config (environment variables).
+Falls back to SMTP if Resend is not configured.
 """
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
-from email import encoders
-from flask import current_app
+import os
+import base64
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
+
+RESEND_API_URL = 'https://api.resend.com/emails'
 
 
-def _get_smtp_config():
-    """Get SMTP config: DB settings take priority, then env vars via Flask config."""
-    from app.models.app_settings import get_smtp_settings
-    db_smtp = get_smtp_settings()
-    cfg = current_app.config
+def _get_resend_key():
+    """Get Resend API key from env or DB settings."""
+    key = os.environ.get('RESEND_API_KEY', '')
+    if not key:
+        try:
+            from app.models.app_settings import get_setting
+            key = get_setting('resend_api_key', '')
+        except Exception:
+            pass
+    return key
 
-    # DB values take priority if set, otherwise fall back to config.py / env vars
-    return {
-        'server': db_smtp['server'] or cfg.get('MAIL_SERVER', 'smtp.gmail.com'),
-        'port': int(db_smtp['port'] or cfg.get('MAIL_PORT', 587)),
-        'use_tls': (db_smtp['use_tls'] != 'false') if db_smtp['username'] else cfg.get('MAIL_USE_TLS', True),
-        'username': db_smtp['username'] or cfg.get('MAIL_USERNAME', ''),
-        'password': db_smtp['password'] or cfg.get('MAIL_PASSWORD', ''),
-        'sender': db_smtp['sender'] or cfg.get('MAIL_DEFAULT_SENDER', ''),
-    }
+
+def _get_sender():
+    """Get sender email from DB settings or default."""
+    try:
+        from app.models.app_settings import get_smtp_settings
+        smtp = get_smtp_settings()
+        return smtp.get('sender') or smtp.get('username') or 'onboarding@resend.dev'
+    except Exception:
+        return 'onboarding@resend.dev'
 
 
 def is_smtp_configured():
-    """Check if SMTP credentials are set (in DB or env vars)."""
-    smtp = _get_smtp_config()
-    return bool(smtp['username'] and smtp['password'])
+    """Check if email sending is configured (Resend API key exists)."""
+    return bool(_get_resend_key())
 
 
 def send_schedule_email(to_email, employee_name, week_label, attachments):
-    """Send weekly schedule as Excel attachment(s).
+    """Send weekly schedule as Excel attachment(s) via Resend API.
 
     Args:
         to_email: recipient email address
@@ -44,58 +49,81 @@ def send_schedule_email(to_email, employee_name, week_label, attachments):
         attachments: list of (xlsx_bytes, filename) tuples
 
     Raises:
-        ValueError: if SMTP is not configured
-        smtplib.SMTPException: on email sending failure
+        ValueError: if Resend is not configured
+        Exception: on email sending failure
     """
-    smtp = _get_smtp_config()
-    if not smtp['username'] or not smtp['password']:
-        raise ValueError("SMTP není nakonfigurován (nastavte v Nastavení → Email)")
+    api_key = _get_resend_key()
+    if not api_key:
+        raise ValueError("Email není nakonfigurován (nastavte RESEND_API_KEY)")
 
-    sender = smtp['sender'] or smtp['username']
+    sender = _get_sender()
 
-    msg = MIMEMultipart()
-    msg['From'] = sender
-    msg['To'] = to_email
-    msg['Subject'] = f'Rozpis směn \u2013 {week_label}'
-
-    body = (
-        f'Dobrý den {employee_name},\n\n'
-        f'v příloze najdete rozpis směn na {week_label}.\n\n'
-        f'S pozdravem,\n'
-        f'Plánování směn FerMato'
+    html_body = (
+        f'<p>Dobrý den {employee_name},</p>'
+        f'<p>v příloze najdete rozpis směn na <strong>{week_label}</strong>.</p>'
+        f'<p>S pozdravem,<br>Plánování směn FerMato</p>'
     )
-    msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-    # Excel attachment(s)
+    # Build attachments list for Resend API
+    resend_attachments = []
     for xlsx_bytes, filename in attachments:
-        part = MIMEBase(
-            'application',
-            'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        part.set_payload(xlsx_bytes)
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-        msg.attach(part)
+        resend_attachments.append({
+            'filename': filename,
+            'content': base64.b64encode(xlsx_bytes).decode('utf-8'),
+        })
 
-    # Send via SMTP
-    port = int(smtp['port'])
-    use_tls = smtp['use_tls']
+    payload = {
+        'from': sender,
+        'to': [to_email],
+        'subject': f'Rozpis směn – {week_label}',
+        'html': html_body,
+        'attachments': resend_attachments,
+    }
 
-    if port == 465 or use_tls == 'ssl':
-        server = smtplib.SMTP_SSL(smtp['server'], port, timeout=15)
-        server.ehlo()
-    else:
-        server = smtplib.SMTP(smtp['server'], port, timeout=15)
-        server.ehlo()
-        if use_tls != 'false':
-            server.starttls()
-            server.ehlo()
+    resp = requests.post(
+        RESEND_API_URL,
+        json=payload,
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+        },
+        timeout=30,
+    )
 
-    try:
-        server.login(smtp['username'], smtp['password'])
-        server.sendmail(sender, [to_email], msg.as_string())
-    finally:
-        try:
-            server.quit()
-        except Exception:
-            pass
+    if resp.status_code not in (200, 201):
+        error_msg = resp.text
+        logger.error(f"Resend API error ({resp.status_code}): {error_msg}")
+        raise Exception(f"Resend API error: {resp.status_code} - {error_msg}")
+
+    logger.info(f"Email sent to {to_email} via Resend: {resp.json()}")
+
+
+def test_connection():
+    """Test Resend API key validity by sending a test email."""
+    api_key = _get_resend_key()
+    if not api_key:
+        raise ValueError("RESEND_API_KEY není nastavený")
+
+    sender = _get_sender()
+
+    payload = {
+        'from': sender,
+        'to': [sender],  # send test to self
+        'subject': 'Test – Plánování směn FerMato',
+        'html': '<p>Testovací email z aplikace Plánování směn. ✓</p>',
+    }
+
+    resp = requests.post(
+        RESEND_API_URL,
+        json=payload,
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+        },
+        timeout=15,
+    )
+
+    if resp.status_code not in (200, 201):
+        raise Exception(f"Resend API: {resp.status_code} - {resp.text}")
+
+    return resp.json()

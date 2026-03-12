@@ -341,47 +341,24 @@
     <div class="tab-pane fade {{ 'show active' if active_tab == 'email' }}" id="tab-email">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-envelope-gear"></i> SMTP nastavení pro odesílání emailů
+                <i class="bi bi-envelope-gear"></i> Nastavení emailů (Resend API)
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('settings.smtp_save') }}">
+                <form method="POST" action="{{ url_for('settings.email_save') }}">
                     <div class="row g-3">
                         <div class="col-md-8">
-                            <label class="form-label">SMTP server</label>
-                            <input type="text" name="smtp_server" class="form-control"
-                                   value="{{ smtp.server }}" placeholder="smtp.gmail.com">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Port</label>
-                            <input type="number" name="smtp_port" class="form-control"
-                                   value="{{ smtp.port or '587' }}" placeholder="587">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Uživatel (login)</label>
-                            <input type="text" name="smtp_username" class="form-control"
-                                   value="{{ smtp.username }}" placeholder="vas@email.cz">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Heslo / App password</label>
-                            <input type="password" name="smtp_password" class="form-control"
-                                   placeholder="{{ '••••••••' if smtp.password else 'Zadejte heslo' }}">
-                            {% if smtp.password %}
-                            <small class="text-muted">Heslo je uloženo. Nechte prázdné, pokud ho nechcete měnit.</small>
+                            <label class="form-label">Resend API klíč</label>
+                            <input type="password" name="resend_api_key" class="form-control"
+                                   placeholder="{{ '••••••••' if resend_key else 'Zadejte API klíč z resend.com' }}">
+                            {% if resend_key %}
+                            <small class="text-muted">Klíč je uložen. Nechte prázdné, pokud ho nechcete měnit.</small>
                             {% endif %}
                         </div>
-                        <div class="col-md-8">
-                            <label class="form-label">Odesílatel (From)</label>
-                            <input type="email" name="smtp_sender" class="form-control"
-                                   value="{{ smtp.sender }}" placeholder="planovani@fermato.cz">
-                            <small class="text-muted">Pokud nevyplníte, použije se přihlašovací email.</small>
-                        </div>
                         <div class="col-md-4">
-                            <label class="form-label">Šifrování</label>
-                            <select name="smtp_use_tls" class="form-select">
-                                <option value="true" {{ 'selected' if smtp.use_tls == 'true' }}>STARTTLS (port 587)</option>
-                                <option value="ssl" {{ 'selected' if smtp.use_tls == 'ssl' }}>SSL (port 465)</option>
-                                <option value="false" {{ 'selected' if smtp.use_tls == 'false' }}>Žádné</option>
-                            </select>
+                            <label class="form-label">Odesílatel (From)</label>
+                            <input type="text" name="email_sender" class="form-control"
+                                   value="{{ smtp.sender }}" placeholder="onboarding@resend.dev">
+                            <small class="text-muted">Ověřená doména v Resend</small>
                         </div>
                     </div>
 
@@ -396,26 +373,26 @@
                         </button>
                     </div>
 
-                    {% if smtp.username and smtp.password %}
+                    {% if resend_key %}
                     <div class="alert alert-success mt-3 mb-0 py-2">
                         <i class="bi bi-check-circle"></i>
-                        SMTP je nakonfigurováno ({{ smtp.username }}).
+                        Resend API je nakonfigurováno.
                     </div>
                     {% else %}
                     <div class="alert alert-warning mt-3 mb-0 py-2">
                         <i class="bi bi-exclamation-triangle"></i>
-                        SMTP není nakonfigurováno — emaily nelze odesílat.
+                        Resend API není nakonfigurováno — emaily nelze odesílat.
                     </div>
                     {% endif %}
                 </form>
 
                 <hr>
-                <h6 class="text-muted"><i class="bi bi-info-circle"></i> Návod pro Gmail</h6>
+                <h6 class="text-muted"><i class="bi bi-info-circle"></i> Nastavení Resend</h6>
                 <ol class="text-muted small mb-0">
-                    <li>V Google účtu zapněte <strong>dvoufázové ověření</strong></li>
-                    <li>Vytvořte <strong>App Password</strong> na <code>myaccount.google.com/apppasswords</code></li>
-                    <li>Server: <code>smtp.gmail.com</code>, Port: <code>587</code>, TLS: STARTTLS</li>
-                    <li>Jako heslo zadejte vygenerovaný App Password (16 znaků bez mezer)</li>
+                    <li>Zaregistrujte se na <a href="https://resend.com" target="_blank">resend.com</a></li>
+                    <li>Vytvořte <strong>API key</strong> v dashboardu</li>
+                    <li>Pro vlastní doménu (From adresu) přidejte doménu v Resend a nastavte DNS záznamy</li>
+                    <li>Bez vlastní domény použijte <code>onboarding@resend.dev</code> jako odesílatele</li>
                 </ol>
             </div>
         </div>

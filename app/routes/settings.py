@@ -1,4 +1,4 @@
-import smtplib
+import os
 import logging
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 
@@ -8,7 +8,7 @@ from app.models.department import (
     get_tasks_for_department, get_all_tasks, create_task, update_task, get_task
 )
 from app.models.shift import get_all_shifts, get_shift, create_shift, update_shift, delete_shift
-from app.models.app_settings import get_smtp_settings, save_smtp_settings
+from app.models.app_settings import get_smtp_settings, save_smtp_settings, get_setting, set_setting
 
 bp = Blueprint('settings', __name__, url_prefix='/settings')
 
@@ -20,9 +20,10 @@ def index():
     shifts = get_all_shifts()
     tasks = get_all_tasks(active_only=False)
     smtp = get_smtp_settings()
+    resend_key = get_setting('resend_api_key', '') or os.environ.get('RESEND_API_KEY', '')
     return render_template('settings/index.html',
                            departments=departments, shifts=shifts, tasks=tasks,
-                           smtp=smtp, active_tab=active_tab)
+                           smtp=smtp, resend_key=resend_key, active_tab=active_tab)
 
 
 # --- Departments ---
@@ -147,68 +148,29 @@ def shift_delete(shift_id):
     return redirect(url_for('settings.index'))
 
 
-# --- SMTP / Email ---
+# --- Email (Resend API) ---
 
-@bp.route('/smtp', methods=['POST'])
-def smtp_save():
-    """Save SMTP settings and optionally send test email."""
-    server = request.form.get('smtp_server', '').strip()
-    port = request.form.get('smtp_port', '587').strip()
-    use_tls = request.form.get('smtp_use_tls', 'true')
-    username = request.form.get('smtp_username', '').strip()
-    password = request.form.get('smtp_password', '').strip()
-    sender = request.form.get('smtp_sender', '').strip()
+@bp.route('/email-save', methods=['POST'])
+def email_save():
+    """Save Resend email settings and optionally send test."""
+    api_key = request.form.get('resend_api_key', '').strip()
+    sender = request.form.get('email_sender', '').strip()
 
-    save_smtp_settings(server, int(port) if port else 587, use_tls, username, password, sender)
-    flash('SMTP nastavení uloženo.', 'success')
+    if api_key:
+        set_setting('resend_api_key', api_key)
+    if sender:
+        # Store sender in smtp_sender for backward compatibility
+        save_smtp_settings('', 587, 'true', '', '', sender)
 
-    # Test connection if requested
+    flash('Nastavení emailu uloženo.', 'success')
+
     action = request.form.get('action', '')
     if action == 'test':
-        smtp = get_smtp_settings()
-        test_user = smtp['username']
-        test_pass = smtp['password']
-        if not test_user or not test_pass:
-            flash('Pro test je potřeba vyplnit uživatele a heslo.', 'error')
-        else:
-            srv = None
-            try:
-                port = int(smtp['port'])
-                use_tls = smtp['use_tls']
-                logger.info(f"SMTP test: server={smtp['server']}, port={port}, use_tls={use_tls}, user={test_user}")
-
-                if port == 465 or use_tls == 'ssl':
-                    logger.info("Using SMTP_SSL")
-                    srv = smtplib.SMTP_SSL(smtp['server'], port, timeout=15)
-                else:
-                    logger.info("Using SMTP plain connect")
-                    srv = smtplib.SMTP(smtp['server'], port, timeout=15)
-
-                srv.set_debuglevel(1)
-                resp = srv.ehlo()
-                logger.info(f"EHLO response: {resp}")
-
-                if port != 465 and use_tls != 'false' and use_tls != 'ssl':
-                    logger.info("Starting STARTTLS")
-                    srv.starttls()
-                    resp2 = srv.ehlo()
-                    logger.info(f"EHLO after STARTTLS: {resp2}")
-
-                logger.info("Attempting login...")
-                srv.login(test_user, test_pass)
-                logger.info("Login successful!")
-                flash(f'Připojení k {smtp["server"]}:{port} úspěšné! ✓', 'success')
-            except smtplib.SMTPAuthenticationError as e:
-                logger.error(f"SMTP auth error: {e}")
-                flash('Chyba autentizace — zkontrolujte uživatele a heslo (u Gmailu použijte App Password).', 'error')
-            except Exception as e:
-                logger.error(f"SMTP error: {type(e).__name__}: {e}", exc_info=True)
-                flash(f'Připojení selhalo: {type(e).__name__}: {e}', 'error')
-            finally:
-                if srv:
-                    try:
-                        srv.quit()
-                    except Exception:
-                        pass
+        try:
+            from app.services.email_service import test_connection
+            result = test_connection()
+            flash(f'Testovací email odeslán! ✓ (ID: {result.get("id", "ok")})', 'success')
+        except Exception as e:
+            flash(f'Test selhal: {e}', 'error')
 
     return redirect(url_for('settings.index', tab='email'))

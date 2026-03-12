@@ -320,7 +320,7 @@ def send_email(plan_id):
         return redirect(url_for('planner.index'))
 
     if not is_smtp_configured():
-        flash('SMTP není nakonfigurován. Nastavte MAIL_USERNAME a MAIL_PASSWORD v prostředí.', 'error')
+        flash('Email není nakonfigurován. Nastavte Resend API klíč v Nastavení → Email.', 'error')
         return redirect(url_for('planner.week_view', week_start=plan['week_start']))
 
     send_type = request.form.get('send_type', 'first')
