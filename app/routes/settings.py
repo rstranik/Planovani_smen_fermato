@@ -175,9 +175,11 @@ def smtp_save():
                     srv = smtplib.SMTP_SSL(smtp['server'], port, timeout=10)
                 else:
                     srv = smtplib.SMTP(smtp['server'], port, timeout=10)
-                    if use_tls:
-                        srv.starttls()
                 try:
+                    srv.ehlo()
+                    if port != 465 and use_tls:
+                        srv.starttls()
+                        srv.ehlo()
                     srv.login(test_user, test_pass)
                     flash(f'Připojení k {smtp["server"]} úspěšné! ✓', 'success')
                 finally:
