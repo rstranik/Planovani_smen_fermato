@@ -17,6 +17,7 @@ env/
 
 # SQLite database
 instance/*.db
+instance/backups/
 
 # Uploads / exports
 instance/uploads/

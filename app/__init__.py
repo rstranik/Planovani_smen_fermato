@@ -4,6 +4,32 @@ from flask import Flask, request, redirect, url_for
 from flask_login import LoginManager, current_user
 
 
+def _backup_database(db_path):
+    """Create a rolling backup of the database on app startup (max 3 backups)."""
+    import shutil
+    from datetime import datetime
+    if not os.path.exists(db_path):
+        return
+    backup_dir = os.path.join(os.path.dirname(db_path), 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_path = os.path.join(backup_dir, f'planovani_smen_{timestamp}.db')
+    try:
+        shutil.copy2(db_path, backup_path)
+    except Exception:
+        return  # silently skip if backup fails
+    # Keep only last 3 backups
+    backups = sorted(
+        [f for f in os.listdir(backup_dir) if f.endswith('.db')],
+        reverse=True
+    )
+    for old in backups[3:]:
+        try:
+            os.remove(os.path.join(backup_dir, old))
+        except Exception:
+            pass
+
+
 def create_app():
     app = Flask(__name__, instance_relative_config=False)
 
@@ -31,6 +57,9 @@ def create_app():
         dir_path = os.path.dirname(d) if d.endswith('.db') else d
         if dir_path:
             os.makedirs(dir_path, exist_ok=True)
+
+    # Auto-backup database before anything else
+    _backup_database(app.config['DATABASE'])
 
     # Initialize database
     from app.db import init_app
