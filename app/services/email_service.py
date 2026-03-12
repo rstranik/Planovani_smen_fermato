@@ -79,16 +79,23 @@ def send_schedule_email(to_email, employee_name, week_label, attachments):
 
     # Send via SMTP
     port = int(smtp['port'])
-    if port == 465:
+    use_tls = smtp['use_tls']
+
+    if port == 465 or use_tls == 'ssl':
         server = smtplib.SMTP_SSL(smtp['server'], port, timeout=15)
+        server.ehlo()
     else:
         server = smtplib.SMTP(smtp['server'], port, timeout=15)
-    try:
         server.ehlo()
-        if port != 465 and smtp['use_tls']:
+        if use_tls != 'false':
             server.starttls()
             server.ehlo()
+
+    try:
         server.login(smtp['username'], smtp['password'])
         server.sendmail(sender, [to_email], msg.as_string())
     finally:
-        server.quit()
+        try:
+            server.quit()
+        except Exception:
+            pass

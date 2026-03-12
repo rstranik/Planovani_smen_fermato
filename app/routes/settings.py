@@ -168,25 +168,32 @@ def smtp_save():
         if not test_user or not test_pass:
             flash('Pro test je potřeba vyplnit uživatele a heslo.', 'error')
         else:
+            srv = None
             try:
                 port = int(smtp['port'])
-                use_tls = smtp['use_tls'] != 'false'
-                if port == 465:
+                use_tls = smtp['use_tls']
+
+                if port == 465 or use_tls == 'ssl':
                     srv = smtplib.SMTP_SSL(smtp['server'], port, timeout=10)
+                    srv.ehlo()
                 else:
                     srv = smtplib.SMTP(smtp['server'], port, timeout=10)
-                try:
                     srv.ehlo()
-                    if port != 465 and use_tls:
+                    if use_tls != 'false':
                         srv.starttls()
                         srv.ehlo()
-                    srv.login(test_user, test_pass)
-                    flash(f'Připojení k {smtp["server"]} úspěšné! ✓', 'success')
-                finally:
-                    srv.quit()
+
+                srv.login(test_user, test_pass)
+                flash(f'Připojení k {smtp["server"]}:{port} úspěšné! ✓', 'success')
             except smtplib.SMTPAuthenticationError:
                 flash('Chyba autentizace — zkontrolujte uživatele a heslo (u Gmailu použijte App Password).', 'error')
             except Exception as e:
-                flash(f'Připojení selhalo: {e}', 'error')
+                flash(f'Připojení selhalo: {type(e).__name__}: {e}', 'error')
+            finally:
+                if srv:
+                    try:
+                        srv.quit()
+                    except Exception:
+                        pass
 
     return redirect(url_for('settings.index', tab='email'))

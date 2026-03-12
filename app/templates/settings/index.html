@@ -378,7 +378,8 @@
                         <div class="col-md-4">
                             <label class="form-label">Šifrování</label>
                             <select name="smtp_use_tls" class="form-select">
-                                <option value="true" {{ 'selected' if smtp.use_tls != 'false' }}>STARTTLS (port 587)</option>
+                                <option value="true" {{ 'selected' if smtp.use_tls == 'true' }}>STARTTLS (port 587)</option>
+                                <option value="ssl" {{ 'selected' if smtp.use_tls == 'ssl' }}>SSL (port 465)</option>
                                 <option value="false" {{ 'selected' if smtp.use_tls == 'false' }}>Žádné</option>
                             </select>
                         </div>
