@@ -4,21 +4,22 @@
           hx-target="closest .plan-cell-wrapper"
           hx-swap="innerHTML">
 
+        {% set is_absence = assignment and assignment.is_absence %}
         <div class="cell-edit-tabs mb-1">
-            <button type="button" class="btn btn-sm btn-outline-primary active cell-tab" data-tab="work" onclick="switchCellTab(this, 'work')">
+            <button type="button" class="btn btn-sm btn-outline-primary {{ '' if is_absence else 'active' }} cell-tab" data-tab="work" onclick="switchCellTab(this, 'work')">
                 Práce
             </button>
-            <button type="button" class="btn btn-sm btn-outline-warning cell-tab" data-tab="absence" onclick="switchCellTab(this, 'absence')">
+            <button type="button" class="btn btn-sm btn-outline-warning {{ 'active' if is_absence else '' }} cell-tab" data-tab="absence" onclick="switchCellTab(this, 'absence')">
                 Absence
             </button>
         </div>
 
         <!-- Work tab -->
-        <div class="cell-tab-content" id="tab-work-{{ emp_id }}-{{ cell_date }}">
+        <div class="cell-tab-content {{ 'd-none' if is_absence else '' }}" id="tab-work-{{ emp_id }}-{{ cell_date }}">
             <select name="shift_template_id" class="form-select form-select-sm mb-1">
                 <option value="">Směna</option>
                 {% for s in shifts %}
-                <option value="{{ s.id }}" {{ 'selected' if assignment and assignment.shift_template_id == s.id }}>
+                <option value="{{ s.id }}" {{ 'selected' if assignment and not is_absence and assignment.shift_template_id == s.id }}>
                     {{ s.name }}
                 </option>
                 {% endfor %}
@@ -28,7 +29,7 @@
                     onchange="loadCellTasks(this, '{{ emp_id }}-{{ cell_date }}')">
                 <option value="">Oddělení</option>
                 {% for d in departments %}
-                <option value="{{ d.id }}" {{ 'selected' if assignment and assignment.department_id == d.id }}>
+                <option value="{{ d.id }}" {{ 'selected' if assignment and not is_absence and assignment.department_id == d.id }}>
                     {{ d.name }}
                 </option>
                 {% endfor %}
@@ -36,14 +37,14 @@
 
             <select name="task_id" class="form-select form-select-sm mb-1"
                     id="cell-task-{{ emp_id }}-{{ cell_date }}">
-                <option value="">Práce</option>
+                <option value="">← vyberte oddělení</option>
             </select>
 
-            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="action" value="{{ 'absence' if is_absence else 'save' }}">
         </div>
 
-        <!-- Absence tab (hidden by default) -->
-        <div class="cell-tab-content d-none" id="tab-absence-{{ emp_id }}-{{ cell_date }}">
+        <!-- Absence tab -->
+        <div class="cell-tab-content {{ '' if is_absence else 'd-none' }}" id="tab-absence-{{ emp_id }}-{{ cell_date }}">
             <select name="absence_type" class="form-select form-select-sm mb-1">
                 {% for val, label in absence_types %}
                 <option value="{{ val }}" {{ 'selected' if assignment and assignment.is_absence and assignment.absence_type == val }}>
