@@ -6,12 +6,14 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+{% set is_pdf = (print_mode == 'pdf') %}
+
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
-    font-size: 13px;
+    font-size: {{ '10px' if is_pdf else '13px' }};
     color: #1F2937;
     background: #fff;
-    padding: 16px;
+    padding: {{ '10px' if is_pdf else '16px' }};
 }
 
 /* ── Header ── */
@@ -19,19 +21,16 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: {{ '6px' if is_pdf else '12px' }};
+    padding-bottom: {{ '4px' if is_pdf else '8px' }};
     border-bottom: 2px solid #1E40AF;
 }
-.doc-title { font-size: 18px; font-weight: 700; color: #1E3A8A; }
-.doc-sub   { font-size: 12px; color: #6B7280; margin-top: 2px; }
-.doc-meta  { font-size: 11px; color: #9CA3AF; text-align: right; }
+.doc-title { font-size: {{ '14px' if is_pdf else '18px' }}; font-weight: 700; color: #1E3A8A; }
+.doc-sub   { font-size: {{ '10px' if is_pdf else '12px' }}; color: #6B7280; margin-top: 1px; }
+.doc-meta  { font-size: {{ '9px' if is_pdf else '11px' }}; color: #9CA3AF; text-align: right; }
 
-/* ── Toolbar (hidden on print) ── */
-.toolbar {
-    display: flex; gap: 8px; margin-bottom: 14px; align-items: center;
-    flex-wrap: wrap;
-}
+/* ── Toolbar ── */
+.toolbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .print-btn {
     display: inline-block; padding: 7px 18px;
     background: #2563EB; color: #fff; border: none; border-radius: 6px;
@@ -42,140 +41,139 @@ body {
 .btn-sec:hover { background: #4B5563; }
 
 /* ── Main table ── */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-/* thead repeats on every printed page automatically */
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 thead { display: table-header-group; }
-tfoot { display: table-footer-group; }
 
 th, td {
     border: 1px solid #D1D5DB;
-    padding: 5px 5px;
-    vertical-align: top;
+    padding: {{ '2px 3px' if is_pdf else '5px 5px' }};
+    vertical-align: {{ 'middle' if is_pdf else 'top' }};
 }
+th:first-child, td:first-child { width: {{ '130px' if is_pdf else '155px' }}; }
 
-/* Name column */
-th:first-child, td:first-child { width: 155px; }
-
-/* Day header */
 thead th {
-    background: #1E40AF;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: center;
-    vertical-align: middle;
-    padding: 7px 4px;
+    background: #1E40AF; color: #fff;
+    font-size: {{ '9px' if is_pdf else '12px' }};
+    font-weight: 700; text-align: center; vertical-align: middle;
+    padding: {{ '4px 2px' if is_pdf else '7px 4px' }};
 }
 thead th:first-child { background: #1E3A8A; }
 thead th.weekend    { background: #1D4ED8; }
 
-/* Striped rows */
+/* Alternating rows */
 tbody.emp-body tr:nth-child(odd) td:not(.weekend)  { background: #fff; }
 tbody.emp-body tr:nth-child(even) td:not(.weekend) { background: #F8FAFC; }
-
-/* Weekend col */
 td.weekend { background: #EEF2FF !important; }
+td.nowork  { background: #F3F4F6 !important; opacity: .6; }
 
-/* No-work col (brigádník, non-working day) */
-td.nowork { background: #F3F4F6 !important; opacity: .6; }
-
-/* Employee name */
 .emp-name {
-    font-size: 13px;
-    font-weight: 700;
-    color: #111827;
-    padding-top: 5px;
+    font-size: {{ '9px' if is_pdf else '13px' }};
+    font-weight: 700; color: #111827;
 }
 .emp-badge {
-    display: inline-block;
-    font-size: 9px;
-    font-weight: 600;
-    background: #E0E7FF;
-    color: #3730A3;
-    border-radius: 3px;
-    padding: 1px 4px;
-    margin-left: 3px;
-    vertical-align: middle;
+    display: inline-block; font-size: 8px; font-weight: 600;
+    background: #E0E7FF; color: #3730A3;
+    border-radius: 3px; padding: 0 3px; margin-left: 2px; vertical-align: middle;
 }
 
-/* Cell content */
+{% if is_pdf %}
+/* ── PDF: compact single-line cells ── */
+.cell-inline {
+    display: inline-flex; align-items: center; gap: 3px;
+    white-space: nowrap; overflow: hidden; max-width: 100%;
+}
 .cell-dept {
-    display: inline-block;
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #1F2937;
-    margin-bottom: 2px;
+    display: inline-block; border-radius: 3px;
+    padding: 0 4px; font-size: 8px; font-weight: 700;
+    color: #1F2937; flex-shrink: 0;
+}
+.cell-task  { font-size: 8px; color: #374151; overflow: hidden; text-overflow: ellipsis; }
+.cell-shift { font-size: 8px; color: #6B7280; flex-shrink: 0; }
+.cell-note  { font-size: 7px; color: #9CA3AF; font-style: italic; }
+.absence {
+    display: inline-block; border-radius: 3px;
+    padding: 0 4px; font-size: 8px; font-weight: 700;
+}
+{% else %}
+/* ── Print (A4): stacked cells ── */
+.cell-dept {
+    display: inline-block; border-radius: 4px;
+    padding: 2px 6px; font-size: 12px; font-weight: 700;
+    color: #1F2937; margin-bottom: 2px;
 }
 .cell-task  { display: block; font-size: 11px; color: #374151; margin-top: 1px; }
 .cell-shift { display: block; font-size: 10px; color: #6B7280; margin-top: 1px; }
 .cell-note  { display: block; font-size: 10px; color: #9CA3AF; font-style: italic; }
-
-/* Absence */
 .absence {
     display: inline-block; border-radius: 4px;
     padding: 2px 7px; font-size: 11px; font-weight: 700;
 }
-.abs-dovolena  { background: #FEF3C7; color: #92400E; }
-.abs-nemoc     { background: #FECACA; color: #991B1B; }
-.abs-lekar     { background: #DBEAFE; color: #1E40AF; }
-.abs-osobni    { background: #D1FAE5; color: #065F46; }
-.abs-nahradni  { background: #EDE9FE; color: #5B21B6; }
-.abs-jine      { background: #E5E7EB; color: #374151; }
-.abs-svatek    { background: #FEF9C3; color: #713F12; }
+{% endif %}
 
-/* ── Brigádníci separator row ── */
+.abs-dovolena { background: #FEF3C7; color: #92400E; }
+.abs-nemoc    { background: #FECACA; color: #991B1B; }
+.abs-lekar    { background: #DBEAFE; color: #1E40AF; }
+.abs-osobni   { background: #D1FAE5; color: #065F46; }
+.abs-nahradni { background: #EDE9FE; color: #5B21B6; }
+.abs-jine     { background: #E5E7EB; color: #374151; }
+.abs-svatek   { background: #FEF9C3; color: #713F12; }
+
+/* ── Brigádníci separator ── */
 tr.brigada-sep td {
     background: #F0F4FF !important;
-    border-top: 2px dashed #93C5FD;
-    padding: 3px 8px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #3730A3;
-    text-transform: uppercase;
-    letter-spacing: .05em;
+    border-top: {{ '1px' if is_pdf else '2px' }} dashed #93C5FD;
+    padding: {{ '2px 5px' if is_pdf else '3px 8px' }};
+    font-size: {{ '8px' if is_pdf else '10px' }};
+    font-weight: 700; color: #3730A3;
+    text-transform: uppercase; letter-spacing: .05em;
 }
 
-/* ── Summary section ── */
+{% if is_pdf %}
+/* ── PDF Summary: compact strip ── */
 .summary-section {
-    margin-top: 18px;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    margin-top: 6px;
+    border-top: 1px solid #BFDBFE;
+    padding-top: 4px;
 }
+.summary-strip {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;
+}
+.summary-day {
+    min-width: 70px;
+}
+.summary-day-label {
+    font-size: 8px; font-weight: 700; color: #1E3A8A;
+    text-transform: uppercase; margin-bottom: 2px;
+}
+.summary-dept-line {
+    font-size: 8px; color: #374151;
+    white-space: nowrap;
+}
+.dept-badge {
+    display: inline-block; border-radius: 2px;
+    padding: 0 3px; font-size: 7px; font-weight: 700; color: #1F2937;
+}
+{% else %}
+/* ── A4 Summary: full table ── */
+.summary-section { margin-top: 18px; page-break-inside: avoid; break-inside: avoid; }
 .summary-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #1E3A8A;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    margin-bottom: 6px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #BFDBFE;
+    font-size: 12px; font-weight: 700; color: #1E3A8A;
+    text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #BFDBFE;
 }
 .summary-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .summary-table th, .summary-table td {
-    border: 1px solid #D1D5DB;
-    padding: 5px 4px;
-    font-size: 11px;
-    vertical-align: top;
+    border: 1px solid #D1D5DB; padding: 5px 4px; font-size: 11px; vertical-align: top;
 }
 .summary-table th:first-child, .summary-table td:first-child { width: 155px; }
 .summary-table thead th {
-    background: #DBEAFE; color: #1E3A8A;
-    font-size: 11px; font-weight: 700;
+    background: #DBEAFE; color: #1E3A8A; font-size: 11px; font-weight: 700;
     text-align: center; padding: 5px 3px;
 }
 .summary-table thead th:first-child { background: #BFDBFE; text-align: left; padding-left: 8px; }
-.summary-table thead th.weekend    { background: #C7D2FE; }
+.summary-table thead th.weekend { background: #C7D2FE; }
 .summary-table td.weekend { background: #EEF2FF; }
 .summary-table tbody tr:nth-child(even) td { background: #F0F7FF; }
-.sum-dept { margin-bottom: 3px; }
 .dept-badge {
     display: inline-block; border-radius: 3px;
     padding: 1px 5px; font-size: 10px; font-weight: 700; color: #1F2937;
@@ -185,14 +183,14 @@ tr.brigada-sep td {
 .task-line { font-size: 10px; color: #4B5563; padding-left: 8px; }
 .staff-ok  { color: #15803D; font-weight: 700; }
 .staff-bad { color: #B91C1C; font-weight: 700; }
+{% endif %}
 
-/* ── Shift legend ── */
+/* ── Legend ── */
 .legend {
-    margin-top: 10px;
-    font-size: 10px;
-    color: #6B7280;
-    border-top: 1px solid #E5E7EB;
-    padding-top: 6px;
+    margin-top: {{ '5px' if is_pdf else '10px' }};
+    font-size: {{ '8px' if is_pdf else '10px' }};
+    color: #6B7280; border-top: 1px solid #E5E7EB;
+    padding-top: {{ '3px' if is_pdf else '6px' }};
 }
 
 /* ===== PRINT STYLES ===== */
@@ -200,56 +198,22 @@ tr.brigada-sep td {
     .toolbar { display: none !important; }
     body { padding: 0; }
 
-{% if print_mode == 'pdf' %}
-    /* ── EMAIL / PDF mód: A3 landscape, jeden týden = jedna strana ── */
-    @page { size: A3 landscape; margin: 6mm; }
-    body { font-size: 10px; }
+{% if is_pdf %}
+    @page { size: A3 landscape; margin: 5mm; }
+    body  { font-size: 9px; }
     thead { display: table-header-group; }
-    tbody.emp-body tr   { page-break-inside: avoid; break-inside: avoid; }
-    .summary-section    { page-break-inside: avoid; break-inside: avoid; margin-top: 8px; }
-    .legend             { page-break-inside: avoid; break-inside: avoid; }
-    .doc-header         { margin-bottom: 5px; padding-bottom: 4px; }
-    .doc-title          { font-size: 13px; }
-    .doc-sub            { font-size: 9px; }
-    th:first-child, td:first-child { width: 130px; }
-    th, td              { padding: 3px 3px; }
-    .emp-name           { font-size: 10px; }
-    .cell-dept          { font-size: 9px; padding: 1px 4px; margin-bottom: 1px; }
-    .cell-task          { font-size: 8px; margin-top: 0; }
-    .cell-shift         { font-size: 8px; }
-    .cell-note          { font-size: 8px; }
-    .absence            { font-size: 9px; padding: 1px 5px; }
-    thead th            { font-size: 10px; padding: 4px 2px; }
-    .summary-section    { margin-top: 6px; }
-    .summary-title      { font-size: 9px; margin-bottom: 3px; }
-    .summary-table th, .summary-table td { font-size: 8px; padding: 2px 2px; }
-    .summary-table th:first-child, .summary-table td:first-child { width: 130px; }
-    .dept-badge         { font-size: 8px; padding: 1px 3px; }
-    .sum-count          { font-size: 10px; }
-    .task-line          { font-size: 8px; }
-    .legend             { font-size: 8px; margin-top: 5px; }
-    tr.brigada-sep td   { font-size: 8px; padding: 2px 5px; }
+    tbody.emp-body tr             { page-break-inside: avoid; break-inside: avoid; }
+    tbody.emp-body tr.brigada-sep { page-break-after: avoid; break-after: avoid; }
+    .summary-section { page-break-inside: avoid; break-inside: avoid; }
+    .legend          { page-break-inside: avoid; break-inside: avoid; }
 {% else %}
-    /* ── TISK (nástěnka): A4 landscape, více stran, čitelné ── */
     @page { size: A4 landscape; margin: 8mm; }
-    body { font-size: 12px; }
+    body  { font-size: 12px; }
     thead { display: table-header-group; }
-    tbody.emp-body tr              { page-break-inside: avoid; break-inside: avoid; }
-    tbody.emp-body tr.brigada-sep  { page-break-after: avoid; break-after: avoid; }
-    .summary-section    { page-break-inside: avoid; break-inside: avoid; }
-    .legend             { page-break-inside: avoid; break-inside: avoid; }
-    .doc-header         { margin-bottom: 8px; padding-bottom: 6px; }
-    .doc-title          { font-size: 15px; }
-    .doc-sub            { font-size: 10px; }
-    th:first-child, td:first-child { width: 140px; }
-    .emp-name           { font-size: 12px; }
-    .cell-dept          { font-size: 11px; padding: 1px 5px; }
-    .cell-task          { font-size: 10px; }
-    .cell-shift         { font-size: 9px; }
-    .cell-note          { font-size: 9px; }
-    thead th            { font-size: 11px; padding: 5px 3px; }
-    .summary-table th, .summary-table td { font-size: 10px; padding: 4px 3px; }
-    .summary-title      { font-size: 11px; }
+    tbody.emp-body tr             { page-break-inside: avoid; break-inside: avoid; }
+    tbody.emp-body tr.brigada-sep { page-break-after: avoid; break-after: avoid; }
+    .summary-section { page-break-inside: avoid; break-inside: avoid; }
+    .legend          { page-break-inside: avoid; break-inside: avoid; }
 {% endif %}
 }
 </style>
@@ -260,12 +224,13 @@ tr.brigada-sep td {
     'dovolena': 'Dovolená', 'nemoc': 'Nemoc', 'lekar': 'Lékař',
     'osobni': 'Osobní', 'nahradni': 'Náhr. volno', 'jine': 'Jiné', 'svatek': 'Svátek'
 } %}
+{% set is_pdf = (print_mode == 'pdf') %}
 
 <div class="toolbar">
     <button class="print-btn" onclick="window.print()">
-        🖨 {% if print_mode == 'pdf' %}Uložit jako PDF (A3 – pro email){% else %}Tisk (A4 – nástěnka){% endif %}
+        🖨 {% if is_pdf %}Uložit jako PDF (A3 – pro email){% else %}Tisk (A4 – nástěnka){% endif %}
     </button>
-    {% if print_mode == 'pdf' %}
+    {% if is_pdf %}
     <a class="print-btn btn-sec" href="?mode=board">↗ Přepnout na tisk A4</a>
     {% else %}
     <a class="print-btn btn-sec" href="?mode=pdf">↗ Přepnout na PDF A3 (pro email)</a>
@@ -277,11 +242,31 @@ tr.brigada-sep td {
         <div class="doc-title">Plán směn – týden {{ plan.week_number }}/{{ plan.year }}</div>
         <div class="doc-sub">{{ dates[0].strftime('%d.%m.') }} – {{ dates[6].strftime('%d.%m.%Y') }}</div>
     </div>
-    <div class="doc-meta">
-        FerMato Smeny<br>
-        Vytištěno {{ dates[0].strftime('%d.%m.%Y') }}
-    </div>
+    <div class="doc-meta">FerMato Smeny &nbsp;|&nbsp; Vytištěno {{ dates[0].strftime('%d.%m.%Y') }}</div>
 </div>
+
+{# ── Macro: render one cell ── #}
+{% macro render_cell(a, is_pdf) %}
+{% if a %}
+    {% if a.is_absence %}
+        <span class="absence abs-{{ a.absence_type or 'jine' }}">{{ absence_labels.get(a.absence_type, '') }}</span>
+        {% if not is_pdf and a.note %}<span class="cell-note">{{ a.note }}</span>{% endif %}
+    {% else %}
+        {% if is_pdf %}
+        <span class="cell-inline">
+            {% if a.dept_name %}<span class="cell-dept" style="background:#{{ a.dept_color or 'D9D9D9' }}">{{ a.dept_name }}</span>{% endif %}
+            {% if a.task_name %}<span class="cell-task">{{ a.task_name }}</span>{% endif %}
+            {% if a.shift_name %}<span class="cell-shift">{{ a.shift_name[:5] if a.shift_name else '' }}</span>{% endif %}
+        </span>
+        {% else %}
+        {% if a.dept_name %}<span class="cell-dept" style="background:#{{ a.dept_color or 'D9D9D9' }}">{{ a.dept_name }}</span>{% endif %}
+        {% if a.task_name %}<span class="cell-task">{{ a.task_name }}</span>{% endif %}
+        {% if a.shift_name %}<span class="cell-shift">{{ a.shift_name }}</span>{% endif %}
+        {% if a.note %}<span class="cell-note">{{ a.note }}</span>{% endif %}
+        {% endif %}
+    {% endif %}
+{% endif %}
+{% endmacro %}
 
 {# ── Main employee grid ── #}
 <table>
@@ -295,57 +280,28 @@ tr.brigada-sep td {
         {% endfor %}
     </tr>
 </thead>
-
 <tbody class="emp-body">
     {% for row in grid %}
     <tr>
         <td class="emp-name">{{ row.employee.name }}</td>
         {% for day in row.days %}
-        {% set a = day.assignment %}
         <td class="{{ 'weekend' if day.is_weekend }}{{ ' nowork' if not day.works_on_day }}">
-            {% if a %}
-                {% if a.is_absence %}
-                    <span class="absence abs-{{ a.absence_type or 'jine' }}">{{ absence_labels.get(a.absence_type, a.absence_type or '') }}</span>
-                    {% if a.note %}<span class="cell-note">{{ a.note }}</span>{% endif %}
-                    {% if a.dept_name or a.task_name %}
-                        <span class="cell-task" style="color:#6B7280">{{ a.dept_name or '' }}{% if a.task_name %} · {{ a.task_name }}{% endif %}</span>
-                    {% endif %}
-                {% else %}
-                    {% if a.dept_name %}<span class="cell-dept" style="background:#{{ a.dept_color or 'D9D9D9' }}">{{ a.dept_name }}</span>{% endif %}
-                    {% if a.task_name %}<span class="cell-task">{{ a.task_name }}</span>{% endif %}
-                    {% if a.shift_name %}<span class="cell-shift">{{ a.shift_name }}</span>{% endif %}
-                    {% if a.note %}<span class="cell-note">{{ a.note }}</span>{% endif %}
-                {% endif %}
-            {% endif %}
+            {{ render_cell(day.assignment, is_pdf) }}
         </td>
         {% endfor %}
     </tr>
     {% endfor %}
 
     {% if brigada_grid %}
-    {# Separator row for brigádníci #}
     <tr class="brigada-sep">
-        <td colspan="8"><i>👤</i> Brigádníci</td>
+        <td colspan="8">👤 Brigádníci</td>
     </tr>
     {% for row in brigada_grid %}
     <tr>
-        <td class="emp-name">
-            {{ row.employee.name }}<span class="emp-badge">B</span>
-        </td>
+        <td class="emp-name">{{ row.employee.name }}<span class="emp-badge">B</span></td>
         {% for day in row.days %}
-        {% set a = day.assignment %}
         <td class="{{ 'weekend' if day.is_weekend }}">
-            {% if a %}
-                {% if a.is_absence %}
-                    <span class="absence abs-{{ a.absence_type or 'jine' }}">{{ absence_labels.get(a.absence_type, a.absence_type or '') }}</span>
-                    {% if a.note %}<span class="cell-note">{{ a.note }}</span>{% endif %}
-                {% else %}
-                    {% if a.dept_name %}<span class="cell-dept" style="background:#{{ a.dept_color or 'D9D9D9' }}">{{ a.dept_name }}</span>{% endif %}
-                    {% if a.task_name %}<span class="cell-task">{{ a.task_name }}</span>{% endif %}
-                    {% if a.shift_name %}<span class="cell-shift">{{ a.shift_name }}</span>{% endif %}
-                    {% if a.note %}<span class="cell-note">{{ a.note }}</span>{% endif %}
-                {% endif %}
-            {% endif %}
+            {{ render_cell(day.assignment, is_pdf) }}
         </td>
         {% endfor %}
     </tr>
@@ -354,7 +310,33 @@ tr.brigada-sep td {
 </tbody>
 </table>
 
-{# ── Summary – only once, at the end ── #}
+{# ── Summary ── #}
+{% if is_pdf %}
+{# PDF: compact horizontal strip – one column per day #}
+<div class="summary-section">
+    <div class="summary-strip">
+        {% for d in dates %}
+        {% set ds = d.isoformat() %}
+        {% if summary.get(ds) %}
+        <div class="summary-day">
+            <div class="summary-day-label">{{ day_names[loop.index0] }} {{ d.strftime('%d.%m.') }}</div>
+            {% for s in summary.get(ds, []) %}
+            <div class="summary-dept-line">
+                <span class="dept-badge" style="background:#{{ s.color }}">{{ s.name }}</span>
+                <strong>{{ s.staff_count }}</strong>
+                {% for t in task_summary.get(ds, []) if t.department_id == s.id %}
+                · {{ t.name }} {{ t.staff_count }}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+{% else %}
+{# A4: full summary table #}
 <div class="summary-section">
     <div class="summary-title">Obsazení pracovišť</div>
     <table class="summary-table">
@@ -377,43 +359,31 @@ tr.brigada-sep td {
             {% endfor %}
             {% for dept_id in all_dept_ids %}
             <tr>
-                {# Find dept name from first day that has it #}
-                {% set dept_name = '' %}
-                {% set dept_color = 'D9D9D9' %}
+                {% set dept_name = namespace(v='') %}
+                {% set dept_color = namespace(v='D9D9D9') %}
                 {% for ds, day_summary in summary.items() %}
-                    {% for s in day_summary %}{% if s.id == dept_id and not dept_name %}{% set dept_name = s.name %}{% set dept_color = s.color %}{% endif %}{% endfor %}
+                    {% for s in day_summary %}{% if s.id == dept_id and not dept_name.v %}{% set dept_name.v = s.name %}{% set dept_color.v = s.color %}{% endif %}{% endfor %}
                 {% endfor %}
                 <td style="font-weight:700;font-size:11px;background:#EFF6FF">
-                    <span class="dept-badge" style="background:#{{ dept_color }}">{{ dept_name }}</span>
+                    <span class="dept-badge" style="background:#{{ dept_color.v }}">{{ dept_name.v }}</span>
                 </td>
                 {% for d in dates %}
                 {% set ds = d.isoformat() %}
                 <td class="{{ 'weekend' if d.weekday() >= 5 }}">
                     {% set dept_data = namespace(found=false, count=0) %}
                     {% for s in summary.get(ds, []) %}
-                        {% if s.id == dept_id %}
-                            {% set dept_data.found = true %}
-                            {% set dept_data.count = s.staff_count %}
-                        {% endif %}
+                        {% if s.id == dept_id %}{% set dept_data.found = true %}{% set dept_data.count = s.staff_count %}{% endif %}
                     {% endfor %}
                     {% if dept_data.found %}
                         <span class="sum-count">{{ dept_data.count }}</span>
                         {% for t in task_summary.get(ds, []) if t.department_id == dept_id %}
                         {% set req = req_map.get(ds, {}).get(t.id) %}
-                        <div class="task-line">
-                            ↳ {{ t.name }}
-                            {% if req %}
-                                <span class="{{ 'staff-ok' if t.staff_count >= req.min_count else 'staff-bad' }}">
-                                    {{ t.staff_count }}/{{ req.min_count }}{% if req.max_count and req.max_count > 0 %}–{{ req.max_count }}{% endif %}
-                                </span>
-                            {% else %}
-                                {{ t.staff_count }}
-                            {% endif %}
+                        <div class="task-line">↳ {{ t.name }}
+                            {% if req %}<span class="{{ 'staff-ok' if t.staff_count >= req.min_count else 'staff-bad' }}">{{ t.staff_count }}/{{ req.min_count }}</span>
+                            {% else %}{{ t.staff_count }}{% endif %}
                         </div>
                         {% endfor %}
-                    {% else %}
-                        <span style="color:#9CA3AF">–</span>
-                    {% endif %}
+                    {% else %}<span style="color:#9CA3AF">–</span>{% endif %}
                 </td>
                 {% endfor %}
             </tr>
@@ -421,6 +391,7 @@ tr.brigada-sep td {
         </tbody>
     </table>
 </div>
+{% endif %}
 
 {% if shifts %}
 <div class="legend">
