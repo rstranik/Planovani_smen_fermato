@@ -29,11 +29,6 @@ def _build_calendar_ctx(year, month):
     num_days = _cal.monthrange(year, month)[1]
     days = [date(year, month, d) for d in range(1, num_days + 1)]
 
-    # Employees
-    all_emps = get_all_employees(active_only=True, exclude_brigada=False)
-    regular_emps = [e for e in all_emps if (e['emp_type'] or 'regular') != 'brigada']
-    brigada_emps  = [e for e in all_emps if (e['emp_type'] or 'regular') == 'brigada']
-
     # Build cell map: emp_id -> date_str -> {type, half_day, note, id}
     month_start = days[0]
     month_end   = days[-1]
@@ -55,8 +50,15 @@ def _build_calendar_ctx(year, month):
             }
             cur += timedelta(days=1)
 
+    # Employees — only those with at least one absence this month
+    all_emps = get_all_employees(active_only=True, exclude_brigada=False)
+    regular_emps = [e for e in all_emps
+                    if (e['emp_type'] or 'regular') != 'brigada' and e['id'] in cal]
+    brigada_emps  = [e for e in all_emps
+                     if (e['emp_type'] or 'regular') == 'brigada' and e['id'] in cal]
+
     # Day counts — regular employees only
-    regular_ids = {e['id'] for e in regular_emps}
+    regular_ids = {e['id'] for e in all_emps if (e['emp_type'] or 'regular') != 'brigada'}
     day_counts = {
         d.isoformat(): sum(1 for eid in regular_ids if d.isoformat() in cal.get(eid, {}))
         for d in days
