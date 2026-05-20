@@ -1,16 +1,24 @@
 <div id="absence-calendar">
 <style>
-/* ── Absence calendar ── */
+/* ── Absence calendar – uses app palette (--fm-*) ── */
 #absence-calendar {
   --cal-row-h: 28px;
   --cal-cell-w: 30px;
   --cal-name-w: 160px;
+  /* absence cell colors – mid-tone swatches matching --fm-abs-* hues */
+  --c-dovolena: #fde68a;   /* amber  */
+  --c-nemoc:    #fca5a5;   /* red    */
+  --c-lekar:    #ddd6fe;   /* violet */
+  --c-osobni:   #6ee7b7;   /* emerald*/
+  --c-nahradni: #f9a8d4;   /* pink   */
+  --c-jine:     #cbd5e1;   /* slate  */
+  --c-svatek:   #fed7aa;   /* orange */
 }
 
 .cal-scroll-wrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 var(--fm-radius) var(--fm-radius);
 }
 
 .cal-table {
@@ -18,145 +26,127 @@
   table-layout: fixed;
   min-width: 100%;
   font-size: 11px;
+  font-family: var(--fm-font);
 }
 
 /* sticky name column */
 .cal-table .cal-name-col {
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  width: var(--cal-name-w);
-  min-width: var(--cal-name-w);
-  max-width: var(--cal-name-w);
-  background: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-right: 2px solid #c7d2fe !important;
+  position: sticky; left: 0; z-index: 3;
+  width: var(--cal-name-w); min-width: var(--cal-name-w); max-width: var(--cal-name-w);
+  background: var(--fm-bg-card);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-right: 2px solid var(--fm-primary-light) !important;
   padding: 4px 8px;
 }
-
 .cal-table thead .cal-name-col {
-  background: #1E40AF;
-  border-right-color: #3b5bdb !important;
+  background: var(--fm-primary);
+  border-right-color: var(--fm-primary-dim) !important;
   z-index: 4;
 }
 
 /* day header cells */
 .cal-table thead th {
-  background: #1E40AF;
+  background: var(--fm-primary);
   color: #fff;
-  font-weight: 700;
-  text-align: center;
+  font-weight: 700; text-align: center;
   padding: 4px 2px;
-  width: var(--cal-cell-w);
-  min-width: var(--cal-cell-w);
-  border: 1px solid #3b5bdb;
-  line-height: 1.2;
-  font-size: 10px;
-  vertical-align: middle;
+  width: var(--cal-cell-w); min-width: var(--cal-cell-w);
+  border: 1px solid var(--fm-primary-dim);
+  line-height: 1.2; font-size: 10px; vertical-align: middle;
 }
-.cal-table thead th.cal-weekend { background: #1d4ed8; }
+.cal-table thead th.cal-weekend {
+  background: var(--fm-primary-dim);
+}
 .cal-table thead th.cal-today {
-  background: #f59e0b !important;
+  background: var(--fm-warning) !important;
   color: #1f2937;
-  border-color: #d97706 !important;
+  border-color: #b45309 !important;
 }
 
 /* body rows */
 .cal-table tbody tr { height: var(--cal-row-h); }
-.cal-table tbody tr:nth-child(odd)  .cal-name-col { background: #fff; }
-.cal-table tbody tr:nth-child(even) .cal-name-col { background: #f8fafc; }
+.cal-table tbody tr:nth-child(odd)  .cal-name-col { background: var(--fm-bg-card); }
+.cal-table tbody tr:nth-child(even) .cal-name-col { background: var(--fm-bg-raised); }
 
 .cal-table tbody td.cal-name-col {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 11px; font-weight: 600; color: var(--fm-text);
 }
-
 .cal-table tbody td {
-  border: 1px solid #e5e7eb;
-  padding: 2px;
-  text-align: center;
-  vertical-align: middle;
-  width: var(--cal-cell-w);
-  min-width: var(--cal-cell-w);
+  border: 1px solid var(--fm-border);
+  padding: 2px; text-align: center; vertical-align: middle;
+  width: var(--cal-cell-w); min-width: var(--cal-cell-w);
 }
+.cal-table tbody tr:nth-child(odd)  td { background: var(--fm-bg-card); }
+.cal-table tbody tr:nth-child(even) td { background: var(--fm-bg-raised); }
 
-.cal-table tbody tr:nth-child(odd)  td { background: #fff; }
-.cal-table tbody tr:nth-child(even) td { background: #f8fafc; }
-
-.cal-table td.cal-weekend { background: #eff6ff !important; }
+.cal-table td.cal-weekend { background: var(--fm-primary-ghost) !important; }
 .cal-table th.cal-weekend,
-.cal-table td.cal-weekend.cal-name-col { background: #dbeafe !important; }
+.cal-table td.cal-weekend.cal-name-col { background: var(--fm-primary-light) !important; opacity:.6; }
 
 .cal-table td.cal-today {
-  box-shadow: inset 0 0 0 2px #f59e0b;
+  box-shadow: inset 0 0 0 2px var(--fm-warning);
 }
 
 /* ── Absence cells ── */
 .abs-cell {
-  display: block;
-  width: 100%;
-  height: 20px;
-  border-radius: 3px;
+  display: block; width: 100%; height: 20px; border-radius: 3px;
 }
-/* full-day colors */
-.abs-cell.abs-dovolena  { background: #fcd34d; }
-.abs-cell.abs-nemoc     { background: #fca5a5; }
-.abs-cell.abs-lekar     { background: #93c5fd; }
-.abs-cell.abs-osobni    { background: #6ee7b7; }
-.abs-cell.abs-nahradni  { background: #c4b5fd; }
-.abs-cell.abs-jine      { background: #d1d5db; }
-.abs-cell.abs-svatek    { background: #fde68a; }
-/* half-day: diagonal gradient – top-left colored, bottom-right white */
-.abs-cell.half.abs-dovolena  { background: linear-gradient(135deg, #fcd34d 50%, #f8fafc 50%); }
-.abs-cell.half.abs-nemoc     { background: linear-gradient(135deg, #fca5a5 50%, #f8fafc 50%); }
-.abs-cell.half.abs-lekar     { background: linear-gradient(135deg, #93c5fd 50%, #f8fafc 50%); }
-.abs-cell.half.abs-osobni    { background: linear-gradient(135deg, #6ee7b7 50%, #f8fafc 50%); }
-.abs-cell.half.abs-nahradni  { background: linear-gradient(135deg, #c4b5fd 50%, #f8fafc 50%); }
-.abs-cell.half.abs-jine      { background: linear-gradient(135deg, #d1d5db 50%, #f8fafc 50%); }
-.abs-cell.half.abs-svatek    { background: linear-gradient(135deg, #fde68a 50%, #f8fafc 50%); }
+.abs-cell.abs-dovolena { background: var(--c-dovolena); }
+.abs-cell.abs-nemoc    { background: var(--c-nemoc); }
+.abs-cell.abs-lekar    { background: var(--c-lekar); }
+.abs-cell.abs-osobni   { background: var(--c-osobni); }
+.abs-cell.abs-nahradni { background: var(--c-nahradni); }
+.abs-cell.abs-jine     { background: var(--c-jine); }
+.abs-cell.abs-svatek   { background: var(--c-svatek); }
 
-/* clickable cells */
+/* half-day: diagonal gradient */
+.abs-cell.half.abs-dovolena { background: linear-gradient(135deg, var(--c-dovolena) 50%, var(--fm-bg-card) 50%); }
+.abs-cell.half.abs-nemoc    { background: linear-gradient(135deg, var(--c-nemoc)    50%, var(--fm-bg-card) 50%); }
+.abs-cell.half.abs-lekar    { background: linear-gradient(135deg, var(--c-lekar)    50%, var(--fm-bg-card) 50%); }
+.abs-cell.half.abs-osobni   { background: linear-gradient(135deg, var(--c-osobni)   50%, var(--fm-bg-card) 50%); }
+.abs-cell.half.abs-nahradni { background: linear-gradient(135deg, var(--c-nahradni) 50%, var(--fm-bg-card) 50%); }
+.abs-cell.half.abs-jine     { background: linear-gradient(135deg, var(--c-jine)     50%, var(--fm-bg-card) 50%); }
+.abs-cell.half.abs-svatek   { background: linear-gradient(135deg, var(--c-svatek)   50%, var(--fm-bg-card) 50%); }
+
 td.has-absence { cursor: pointer; }
-td.has-absence:hover .abs-cell { opacity: .75; filter: brightness(0.95); }
+td.has-absence:hover .abs-cell { filter: brightness(.92); }
 
 /* ── Count row ── */
-tr.count-row td { background: #f0f7ff !important; border-top: 2px solid #bfdbfe !important; }
+tr.count-row td {
+  background: var(--fm-primary-ghost) !important;
+  border-top: 2px solid var(--fm-primary-light) !important;
+}
 tr.count-row .cal-name-col {
-  font-size: 10px; font-weight: 700; color: #1e3a8a;
+  font-size: 10px; font-weight: 700; color: var(--fm-primary-dim);
   text-transform: uppercase; letter-spacing: .04em;
-  background: #dbeafe !important;
+  background: var(--fm-primary-light) !important;
 }
 .count-badge {
   display: inline-block;
-  background: #2563eb; color: #fff;
-  border-radius: 10px;
-  font-size: 9px; font-weight: 700;
+  background: var(--fm-primary); color: #fff;
+  border-radius: 10px; font-size: 9px; font-weight: 700;
   padding: 1px 5px; line-height: 1.3;
 }
-.count-badge.high { background: #dc2626; }
+.count-badge.high { background: var(--fm-danger); }
 
 /* ── Brigada separator ── */
 tr.brigada-sep-row td {
-  background: #f0f4ff !important;
-  border-top: 2px dashed #93c5fd !important;
-  font-size: 10px; font-weight: 700; color: #3730a3;
+  background: var(--fm-primary-ghost) !important;
+  border-top: 2px dashed var(--fm-primary-light) !important;
+  font-size: 10px; font-weight: 700; color: var(--fm-primary-dim);
   text-transform: uppercase; letter-spacing: .05em;
-  padding: 3px 8px;
-  text-align: left;
+  padding: 3px 8px; text-align: left;
 }
 tr.brigada-row .cal-name-col {
-  font-weight: 600; color: #4338ca;
-  font-style: italic;
+  font-weight: 600; color: var(--fm-primary); font-style: italic;
 }
 
 /* ── Legend ── */
 .cal-legend {
   display: flex; flex-wrap: wrap; gap: 10px;
-  padding: 8px 12px; font-size: 11px; color: #4b5563;
-  border-top: 1px solid #e5e7eb;
+  padding: 8px 12px; font-size: 11px; color: var(--fm-text-secondary);
+  border-top: 1px solid var(--fm-border);
+  font-family: var(--fm-font);
 }
 .legend-item { display: flex; align-items: center; gap: 5px; }
 .legend-swatch {
@@ -164,8 +154,8 @@ tr.brigada-row .cal-name-col {
 }
 .legend-half {
   display: inline-block; width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
-  background: linear-gradient(135deg, #94a3b8 50%, #f8fafc 50%);
-  border: 1px solid #cbd5e1;
+  background: linear-gradient(135deg, var(--c-jine) 50%, var(--fm-bg-card) 50%);
+  border: 1px solid var(--fm-border);
 }
 </style>
 
@@ -288,13 +278,13 @@ tr.brigada-row .cal-name-col {
 
 {# ── Legend ── #}
 <div class="cal-legend">
-  <div class="legend-item"><span class="legend-swatch" style="background:#fcd34d;"></span> Dovolená</div>
-  <div class="legend-item"><span class="legend-swatch" style="background:#fca5a5;"></span> Nemoc</div>
-  <div class="legend-item"><span class="legend-swatch" style="background:#93c5fd;"></span> Lékař</div>
-  <div class="legend-item"><span class="legend-swatch" style="background:#6ee7b7;"></span> Osobní</div>
-  <div class="legend-item"><span class="legend-swatch" style="background:#c4b5fd;"></span> Náhr. volno</div>
-  <div class="legend-item"><span class="legend-swatch" style="background:#d1d5db;"></span> Jiné</div>
-  <div class="legend-item"><span class="legend-swatch" style="background:#fde68a;"></span> Svátek</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-dovolena);"></span> Dovolená</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-nemoc);"></span> Nemoc</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-lekar);"></span> Lékař</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-osobni);"></span> Osobní</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-nahradni);"></span> Náhr. volno</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-jine);"></span> Jiné</div>
+  <div class="legend-item"><span class="legend-swatch" style="background:var(--c-svatek);"></span> Svátek</div>
   <div class="legend-item"><span class="legend-half"></span> Půl dne</div>
 </div>
 
